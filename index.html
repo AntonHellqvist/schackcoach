@@ -18,6 +18,7 @@
   <div class="app">
     <nav class="nav">
       <a class="brand" href="#/"><img src="vendor/pieces/wN.svg" alt=""> Schackcoach</a>
+      <a href="#/traning" data-route="traning"><span>🔥</span> Dagens träning</a>
       <a href="#/spela" data-route="spela"><span>♟</span> Spela</a>
       <a href="#/analys" data-route="analys"><span>📈</span> Mina partier</a>
       <a href="#/pussel" data-route="pussel"><span>🧩</span> Pussel</a>
@@ -25,6 +26,7 @@
       <a href="#/oppningar" data-route="oppningar"><span>📖</span> Öppningar</a>
       <a href="#/matter" data-route="matter"><span>♚</span> Snygga matter</a>
       <a href="#/utveckling" data-route="utveckling"><span>📊</span> Min utveckling</a>
+      <a href="#/installningar" data-route="installningar"><span>⚙️</span> Inställningar</a>
       <a href="#/analys" class="bg-status hidden" id="bg-status"></a>
     </nav>
     <main id="view"></main>
@@ -32,17 +34,19 @@
   <!-- Flikrad för mobil (visas bara på smala skärmar) -->
   <nav class="tabbar" id="tabbar">
     <a href="#/" data-route=""><span>🏠</span>Hem</a>
+    <a href="#/traning" data-route="traning"><span>🔥</span>Träna</a>
     <a href="#/spela" data-route="spela"><span>♟</span>Spela</a>
     <a href="#/analys" data-route="analys"><span>📈</span>Partier</a>
-    <a href="#/pussel" data-route="pussel"><span>🧩</span>Pussel</a>
     <button type="button" id="more-btn" data-more><span>☰</span>Mer</button>
   </nav>
   <div class="sheet hidden" id="more-sheet">
     <div class="sheet-panel">
+      <a href="#/pussel" data-route="pussel"><span>🧩</span> Pussel</a>
       <a href="#/utmaningar" data-route="utmaningar"><span>🏆</span> Utmaningar</a>
       <a href="#/oppningar" data-route="oppningar"><span>📖</span> Öppningar</a>
       <a href="#/matter" data-route="matter"><span>♚</span> Snygga matter</a>
       <a href="#/utveckling" data-route="utveckling"><span>📊</span> Min utveckling</a>
+      <a href="#/installningar" data-route="installningar"><span>⚙️</span> Inställningar & synk</a>
     </div>
   </div>
   <div id="toasts"></div>

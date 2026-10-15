@@ -18,6 +18,13 @@ Appen öppnas på http://localhost:8642. Inget behöver installeras (bara Python
 
 ## Funktioner
 
+- **Dagens träning** 🔥 – ett personligt pass på 10–15 min varje dag (pussel i ditt svagaste tema, dina egna misstag,
+  en öppning och ett mattmönster) med streak.
+- **Coachen** 🛟 – förklarar misstag i klartext (hängande pjäser, gafflar, missade slag, matthot) och kan varna
+  *innan* du gör ett dåligt drag mot bottarna. Min utveckling visar dina vanligaste typer av misstag.
+- **Synk mellan enheter** ☁️ – under Inställningar kopplar du appen till en hemlig gist i ditt GitHub-konto
+  så följer framstegen med mellan mobil och dator.
+
 - **Spela** mot 8 bottar från ca 400 till full Stockfish-styrka, med tips och ångra.
 - **Partibedömning** drag för drag (briljant, bästa, inexakt, misstag, blunder …), träffsäkerhet,
   värderingsgraf och coachkommentarer. Hämtar dina partier direkt från **Chess.com**, eller klistra in PGN.

@@ -3,6 +3,8 @@ import { BOTS } from '../bots.js';
 import { themeName } from '../lichess.js';
 import { CLASSES } from '../analysis.js';
 import { libraryGames } from '../library.js';
+import { MISTAKE_TYPES } from '../coach.js';
+import { backfillMistakeTypes } from '../analyzer.js';
 
 function lineChart(values, { min, max, color = 'var(--accent)', height = 140, labels = [] } = {}) {
   if (values.length < 2) return '<p class="muted small">För lite data än – fortsätt träna så dyker grafen upp!</p>';
@@ -23,6 +25,14 @@ function lineChart(values, { min, max, color = 'var(--accent)', height = 140, la
 }
 
 export function mount(view) {
+  // Äldre analyser saknar misstagstyper – räkna fram dem och rita om.
+  let alive = true;
+  backfillMistakeTypes().then((n) => { if (n && alive) render(view); });
+  render(view);
+  return () => { alive = false; };
+}
+
+function render(view) {
   const s = getState();
   const games = s.games.filter((g) => g.accuracy != null);
   const accs = games.slice(-20).map((g) => g.accuracy);
@@ -76,11 +86,20 @@ export function mount(view) {
       ${lineChart(t.ratings, { labels: t.dates, color: 'var(--accent)' })}</div>`;
   }).join('');
 
+  // Vanligaste misstagen
+  const typeTotals = {};
+  for (const g of games) for (const [t, n] of Object.entries(g.mistakeTypes || {})) typeTotals[t] = (typeTotals[t] || 0) + n;
+  const typeSum = Object.values(typeTotals).reduce((a, b) => a + b, 0);
+  const typeRows = Object.entries(typeTotals).sort((a, b) => b[1] - a[1]);
+  const topType = typeRows.find(([t]) => t !== 'other');
+
   // Rekommendationer
   const tips = [];
   const unsolved = s.mistakes.filter((m) => !m.solved).length;
   if (!games.length) tips.push(['📈', 'Analysera ditt första parti', 'Hämta dina partier från Chess.com eller spela mot en bot och få dem bedömda.', '#/analys']);
   if (unsolved) tips.push(['🔁', `Träna på ${unsolved} egna misstag`, 'Det snabbaste sättet att bli bättre är att lära av sina egna fel.', '#/pussel/mistakes']);
+  if (topType && typeSum >= 5) tips.push(['🎯', `Ditt vanligaste misstag: ${MISTAKE_TYPES[topType[0]].name.toLowerCase()}`,
+    `${Math.round((topType[1] / typeSum) * 100)} % av dina misstag. ${MISTAKE_TYPES[topType[0]].tip}`, '#/traning']);
   if (games.length && totals.b / games.length >= 1.5) tips.push(['🛡️', 'Färre blunders', `Du gör i snitt ${(totals.b / games.length).toFixed(1)} blunders per parti. Innan varje drag: fråga dig "vad hotar motståndaren?" och "är min pjäs skyddad?".`, '#/pussel']);
   if (weakest[0] && weakest[0].rate < 0.6) tips.push(['🧩', `Öva på ${themeName(weakest[0].t).toLowerCase()}`, `Du löser ${Math.round(weakest[0].rate * 100)} % av pusslen med detta tema.`, '#/pussel']);
   const badOpening = openings.find((o) => o.n >= 3 && o.l / o.n > 0.6);
@@ -110,6 +129,15 @@ export function mount(view) {
     <div class="grid" style="margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
       <div class="card chart"><h3>Träffsäkerhet (senaste 20 partierna)</h3>${lineChart(accs, { min: 0, max: 100, labels: games.slice(-20).map((g) => g.date) })}</div>
       <div class="card chart"><h3>Pusselrating</h3>${lineChart(ratingPts, { color: 'var(--info)' })}</div>
+    </div>
+
+    <div class="card" style="margin-top:14px"><h3>Dina vanligaste misstag</h3>
+      ${typeSum ? `<p class="muted small">Från ${games.length} analyserade partier (${typeSum} misstag och blunders).</p>
+      ${typeRows.map(([t, n]) => `<div style="margin:10px 0">
+        <div class="row" style="justify-content:space-between"><b>${MISTAKE_TYPES[t]?.name || t}</b><span class="muted small">${n} st · ${Math.round((n / typeSum) * 100)} %</span></div>
+        <div class="progress" style="margin:4px 0"><div style="width:${(n / typeSum) * 100}%;background:${t === 'other' ? 'var(--muted)' : 'var(--c-mistake)'}"></div></div>
+        ${t !== 'other' ? `<div class="muted small">💡 ${MISTAKE_TYPES[t].tip}</div>` : ''}</div>`).join('')}` :
+      '<p class="muted small">Analysera några partier så visar coachen vilka typer av misstag du gör oftast.</p>'}
     </div>
 
     <div class="grid" style="margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">

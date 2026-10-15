@@ -2,6 +2,9 @@ import { Chess } from '../../vendor/chess.js';
 import { Board } from '../board.js';
 import { OPENINGS } from '../data/openings.js';
 import { getState, update, unlock } from '../store.js';
+import { getDaily, markDaily, stepDone } from '../daily.js';
+
+const dailyStep = (kind, ref) => { const d = getDaily(); return d.steps.find((s) => s.kind === kind && s.ref === ref && !stepDone(d, s)); };
 
 export function mount(view, [id]) {
   const o = OPENINGS.find((x) => x.id === id);
@@ -40,7 +43,8 @@ function trainer(view, o) {
   view.innerHTML = `
     <div class="row" style="margin-bottom:10px"><a class="btn" href="#/oppningar">← Öppningar</a>
       <h1 style="margin:0 0 0 6px;font-size:1.3rem">${o.name}</h1><span class="pill">${o.eco}</span>
-      <span class="pill">${o.side === 'w' ? 'Du spelar vit' : 'Du spelar svart'}</span></div>
+      <span class="pill">${o.side === 'w' ? 'Du spelar vit' : 'Du spelar svart'}</span>
+      ${dailyStep('opening', o.id) ? '<span class="pill warn">🔥 Del av dagens träning</span>' : ''}</div>
     <div class="layout">
       <div class="board-col"><div id="board"></div></div>
       <div class="side">
@@ -135,6 +139,9 @@ function trainer(view, o) {
       r.practiced++;
       if (perfect) r.perfect = true;
     });
+    if (markDaily('opening', { ref: o.id })) {
+      $('#status').innerHTML += '<div style="margin-top:8px"><a class="btn primary" href="#/traning">🔥 Tillbaka till dagens träning →</a></div>';
+    }
     const perfectCount = Object.values(getState().openings).filter((x) => x.perfect).length;
     if (perfectCount >= 1) unlock('opening_1');
     if (perfectCount >= 5) unlock('opening_5');

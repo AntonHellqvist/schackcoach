@@ -1,6 +1,7 @@
 import { Chess } from '../../vendor/chess.js';
 import { Board, uciToMove } from '../board.js';
-import { Engine, sharedEngine } from '../engine.js';
+import { Engine, sharedEngine, toWhiteCp, winProb } from '../engine.js';
+import { diagnose } from '../coach.js';
 import { BOTS, botMove } from '../bots.js';
 import { getState, update, unlock } from '../store.js';
 import { addGame } from '../library.js';
@@ -117,6 +118,10 @@ export function mountGame(view, opts) {
   let destroyed = false;
   let hintsUsed = 0;
   let takebacks = 0;
+  let coachSaves = 0; // gånger coachen varnade och du tänkte om
+  let coach = getState().settings.coachMode !== false;
+  let pre = null; // { fen, promise } – motorns värdering av ställningen innan ditt drag
+  let pending = null; // drag som coachen varnar för
 
   view.innerHTML = `
     ${opts.title ? `<h1>${opts.title}</h1>` : ''}
@@ -126,6 +131,7 @@ export function mountGame(view, opts) {
         <div class="player-bar" id="top"></div>
         <div id="board"></div>
         <div class="player-bar" id="bottom"></div>
+        <div id="coachbox" class="feedback warn hidden"></div>
       </div>
       <div class="side">
         <div class="card">
@@ -136,6 +142,7 @@ export function mountGame(view, opts) {
             <button id="undo" title="Ta tillbaka ditt senaste drag">↶ Ångra</button>
             <button id="flip" title="Vänd brädet">⇅ Vänd</button>
             <button id="resign" title="Ge upp">🏳 Ge upp</button>
+            <button id="coach" title="Coachen varnar innan du gör ett dåligt drag"></button>
           </div>
         </div>
         <div class="card">
@@ -205,10 +212,78 @@ export function mountGame(view, opts) {
     }
     $('#undo').disabled = thinking || chess.history().length < (userColor === 'w' ? 1 : 2);
     $('#hint').disabled = thinking;
+    // Coachen förbereder sig medan du tänker
+    if (coach && !thinking && chess.turn() === userColor && pre?.fen !== chess.fen()) {
+      const fen = chess.fen();
+      pre = { fen, promise: sharedEngine().analyse(fen, { depth: 11 }) };
+    }
+  }
+
+  function renderCoachBtn() {
+    $('#coach').textContent = coach ? '🛟 Coach: på' : '🛟 Coach: av';
+    $('#coach').classList.toggle('primary', coach);
+  }
+
+  /** Coachen kollar draget innan det spelas. Returnerar true om draget kan spelas direkt. */
+  async function coachCheck(m) {
+    const fen = chess.fen();
+    const temp = new Chess(fen);
+    let mv;
+    try { mv = temp.move(m); } catch { return true; }
+    if (temp.isGameOver()) return true;
+    board.set(temp.fen(), { lastMove: { from: mv.from, to: mv.to } });
+    board.setMovable(null);
+    $('#status').className = 'feedback';
+    $('#status').innerHTML = '<span class="spinner"></span> Coachen tittar på draget…';
+    const before = await (pre?.fen === fen ? pre.promise : sharedEngine().analyse(fen, { depth: 11 }));
+    const after = await sharedEngine().analyse(temp.fen(), { depth: 11 });
+    if (destroyed || chess.fen() !== fen || !before.lines[0] || !after.lines[0]) return true;
+    const sign = userColor === 'w' ? 1 : -1;
+    const cpBefore = toWhiteCp(before.lines[0].score, userColor);
+    const cpAfter = toWhiteCp(after.lines[0].score, temp.turn());
+    const wpB = winProb(sign * cpBefore);
+    const wpA = winProb(sign * cpAfter);
+    if (wpB - wpA < 0.15 || wpB < 0.12) return true;
+
+    const d = diagnose(mv, { bestUci: before.bestmove, replyUci: after.bestmove, cpBefore, cpAfter });
+    pending = m;
+    const arrows = [];
+    if (after.bestmove) arrows.push({ ...uciToMove(after.bestmove), color: 'red' });
+    board.setArrows(arrows);
+    const box = $('#coachbox');
+    box.classList.remove('hidden');
+    box.innerHTML = `<b>🛟 Vänta lite!</b> ${d?.text && d.type !== 'other' ? d.text : `<b>${mv.san}</b> försämrar din ställning mycket.${d?.text ? ' ' + d.text : ''}`}
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="rethink">↶ Tänk om</button>
+        <button id="playanyway">Spela ändå</button>
+      </div>`;
+    $('#status').className = 'feedback info';
+    $('#status').textContent = 'Coachen har en fundering…';
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    box.querySelector('#rethink').onclick = () => {
+      coachSaves++;
+      pending = null;
+      box.classList.add('hidden');
+      board.setArrows([]);
+      render();
+    };
+    box.querySelector('#playanyway').onclick = () => {
+      const pm = pending;
+      pending = null;
+      box.classList.add('hidden');
+      board.setArrows([]);
+      commitMove(pm);
+    };
+    return false;
   }
 
   async function userMove(m) {
-    if (over || thinking) return;
+    if (over || thinking || pending) return;
+    if (coach && !(await coachCheck(m))) return;
+    commitMove(m);
+  }
+
+  async function commitMove(m) {
     try {
       chess.move(m);
     } catch {
@@ -282,14 +357,14 @@ export function mountGame(view, opts) {
         r[userWon ? 'w' : draw ? 'd' : 'l']++;
       });
       unlock('first_game');
-      if (userWon && hintsUsed === 0 && takebacks === 0) unlock('beat_' + bot.id);
+      if (userWon && hintsUsed === 0 && takebacks === 0 && coachSaves === 0) unlock('beat_' + bot.id);
     }
 
     const end = $('#endcard');
     end.classList.remove('hidden');
     end.innerHTML = `
       <h2>${userWon ? 'Snyggt spelat!' : draw ? 'Jämnt!' : 'Bra kämpat!'}</h2>
-      <p class="muted">${userWon && (hintsUsed || takebacks) && !opts.onEnd ? 'Vinsten räknas inte som utmaning eftersom du använde tips eller ångra – men bra jobbat ändå!' :
+      <p class="muted">${userWon && (hintsUsed || takebacks || coachSaves) && !opts.onEnd ? 'Vinsten räknas inte som utmaning eftersom du fick hjälp (tips, ångra eller coachen) – men bra jobbat ändå! Prova utan hjälp nästa gång.' :
         'Titta på bedömningen för att se var partiet avgjordes och vad du kan göra bättre.'}</p>
       <div class="row">
         <button class="primary" id="review">📈 Bedöm partiet</button>
@@ -306,6 +381,13 @@ export function mountGame(view, opts) {
   }
 
   $('#flip').onclick = () => { board.flip(); render(); };
+  $('#coach').onclick = () => {
+    coach = !coach;
+    update((s) => { s.settings.coachMode = coach; });
+    renderCoachBtn();
+    render();
+  };
+  renderCoachBtn();
   $('#resign').onclick = () => {
     if (over) return;
     if (confirm('Vill du ge upp partiet?')) {

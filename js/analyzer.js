@@ -31,6 +31,7 @@ export function saveAnalysis(meta, moves, evals, headers, userColor) {
   const classified = classifyMoves(moves, evals, BOOK);
   const opening = detectOpening(moves.map((m) => m.san))?.name || meta.opening || chesscomOpening(headers.ECOUrl) || headers.Opening || '';
   const counts = countClasses(classified, userColor);
+  const mistakeTypes = mistakeTypeCounts(classified, userColor);
   const entry = {
     id: meta.id,
     source: meta.source || 'pgn',
@@ -43,6 +44,7 @@ export function saveAnalysis(meta, moves, evals, headers, userColor) {
     accuracy: accuracy(classified, userColor),
     oppAccuracy: accuracy(classified, userColor === 'w' ? 'b' : 'w'),
     counts,
+    mistakeTypes,
     opening,
     timeClass: meta.timeClass || null,
     evals: compact(evals),
@@ -71,6 +73,7 @@ export function saveAnalysis(meta, moves, evals, headers, userColor) {
       s.mistakes.push({
         id, fen: moves[m.i].before, best: m.bestUci, bestSan: m.bestSan, played: m.san, cls: m.cls,
         bestCp: userColor === 'w' ? e0.cp : -e0.cp, gameId: entry.id, solved: false, added: Date.now(),
+        type: m.mistakeType, why: m.text,
       });
     }
     if (s.mistakes.length > 400) s.mistakes = s.mistakes.slice(-400);
@@ -81,6 +84,37 @@ export function saveAnalysis(meta, moves, evals, headers, userColor) {
   if (entry.accuracy >= 90 && userMoves >= 10) unlock('accuracy_90');
   if (userMoves >= 20 && counts.blunder === 0) unlock('no_blunder');
   return entry;
+}
+
+/** Antal misstag/blunders per typ (hängande pjäs, gaffel …) för en sida. */
+export function mistakeTypeCounts(classified, color) {
+  const out = {};
+  for (const m of classified) {
+    if (m.color !== color || (m.cls !== 'mistake' && m.cls !== 'blunder') || !m.mistakeType) continue;
+    out[m.mistakeType] = (out[m.mistakeType] || 0) + 1;
+  }
+  return out;
+}
+
+/**
+ * Räknar fram misstagstyper för analyser som gjordes innan coachen fanns.
+ * Körs i små portioner så att sidan inte fryser. Returnerar antal uppdaterade partier.
+ */
+export async function backfillMistakeTypes() {
+  const todo = getState().games.filter((g) => !g.mistakeTypes && g.evals && getLibraryGame(g.id));
+  let n = 0;
+  for (const g of todo) {
+    try {
+      const { moves } = parseGame(getLibraryGame(g.id).pgn);
+      if (moves.length + 1 !== g.evals.length) continue;
+      const classified = classifyMoves(moves, g.evals, BOOK);
+      g.mistakeTypes = mistakeTypeCounts(classified, g.userColor);
+      n++;
+    } catch { /* hoppa över */ }
+    if (n % 5 === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  if (n) update(() => {});
+  return n;
 }
 
 // ---------------------------------------------------------------- bakgrundskö

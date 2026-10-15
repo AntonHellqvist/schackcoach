@@ -24,10 +24,24 @@ export function getState() {
   return state;
 }
 
+const changeListeners = new Set();
+/** Anropas efter varje sparning (används av synken). */
+export function onStateChange(fn) {
+  changeListeners.add(fn);
+  return () => changeListeners.delete(fn);
+}
+
+/** Ersätter hela statet (används när synken har slagit ihop data från andra enheter). */
+export function replaceState(next) {
+  state = Object.assign(defaults(), next);
+  save();
+}
+
 export function save() {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
+      for (const fn of changeListeners) fn();
       return;
     } catch (e) {
       // Fullt lagringsutrymme: släng de detaljerade analyserna för de äldsta partierna

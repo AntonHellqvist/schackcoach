@@ -203,7 +203,7 @@ export class Board {
       const p = chess.get(sq);
       const ghost = document.createElement('img');
       ghost.src = `vendor/pieces/${p.color}${p.type.toUpperCase()}.svg`;
-      ghost.className = 'ghost';
+      ghost.className = 'drag-ghost';
       const size = this.el.getBoundingClientRect().width / 8;
       ghost.style.width = ghost.style.height = size + 'px';
       document.body.append(ghost);

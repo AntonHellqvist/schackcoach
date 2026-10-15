@@ -2,6 +2,7 @@ import { getState, update } from '../store.js';
 import { ACHIEVEMENTS } from '../achievements.js';
 import { libraryGames, onLibraryChange, syncChesscom } from '../library.js';
 import { getAnalysis, onQueueChange, enqueue } from '../analyzer.js';
+import { getDaily, dailyProgress, streakInfo } from '../daily.js';
 
 export function mount(view) {
   const s = getState();
@@ -10,13 +11,26 @@ export function mount(view) {
   const avgAcc = reviewed.length ? Math.round(reviewed.slice(-10).reduce((a, g) => a + g.accuracy, 0) / Math.min(10, reviewed.length)) : null;
   const openMistakes = s.mistakes.filter((m) => !m.solved).length;
   const next = ACHIEVEMENTS.find((a) => !s.achievements[a.id]);
+  const daily = getDaily();
+  const dp = dailyProgress(daily);
+  const streak = streakInfo();
 
   view.innerHTML = `
     <div class="card hero" style="margin-bottom:16px">
-      <h1>Välkommen tillbaka! ♞</h1>
-      <p class="muted">Spela, analysera och träna. Varje parti du bedömer gör din träning mer personlig.</p>
       <div class="row">
-        <a class="btn primary" href="#/spela">♟ Spela mot bot</a>
+        <h1 style="margin:0">Välkommen tillbaka! ♞</h1><span class="spacer"></span>
+        <span class="pill ${streak.current ? 'warn' : ''}" style="font-size:.95rem">🔥 ${streak.current} ${streak.current === 1 ? 'dag' : 'dagar'} i rad</span>
+      </div>
+      <a href="#/traning" class="card" style="display:block;margin:14px 0;text-decoration:none;color:inherit;background:var(--panel-2)">
+        <div class="row"><b>${daily.completed ? '✅ Dagens träning är klar!' : '🔥 Dagens träning'}</b><span class="spacer"></span>
+          <span class="muted small">${dp.done} / ${dp.total}</span></div>
+        <div class="progress" style="margin-top:8px"><div style="width:${(dp.done / dp.total) * 100}%"></div></div>
+        <div class="muted small" style="margin-top:6px">${daily.completed ? 'Snyggt! Kom tillbaka imorgon för ett nytt pass.' :
+          daily.steps.find((x) => (daily.progress[x.id] || 0) < x.target)?.title + ' →'}</div>
+      </a>
+      <div class="row">
+        <a class="btn primary" href="#/traning">🔥 Träna</a>
+        <a class="btn" href="#/spela">♟ Spela mot bot</a>
         <a class="btn" href="#/pussel">🧩 Lös pussel</a>
         <a class="btn" href="#/analys">📈 Mina partier</a>
       </div>

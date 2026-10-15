@@ -2,9 +2,11 @@ import { onAchievement, getState } from './store.js';
 import { ACHIEVEMENTS } from './achievements.js';
 import { syncChesscom } from './library.js';
 import { enqueue, onQueueChange } from './analyzer.js';
+import { startAutoSync } from './sync.js';
 
 const routes = {
   '': () => import('./views/home.js'),
+  traning: () => import('./views/training.js'),
   spela: () => import('./views/play.js'),
   analys: () => import('./views/review.js'),
   pussel: () => import('./views/puzzles.js'),
@@ -12,6 +14,7 @@ const routes = {
   oppningar: () => import('./views/openings.js'),
   matter: () => import('./views/mates.js'),
   utveckling: () => import('./views/progress.js'),
+  installningar: () => import('./views/settings.js'),
 };
 
 const view = document.getElementById('view');
@@ -77,6 +80,7 @@ async function sync(force = false) {
     console.warn('Synk misslyckades', e);
   }
 }
+startAutoSync();
 window.addEventListener('focus', () => sync());
 setInterval(() => sync(), 5 * 60 * 1000);
 sync();

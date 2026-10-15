@@ -3,6 +3,7 @@ import { Board } from '../board.js';
 import { runPuzzle, sanToUci } from '../puzzle.js';
 import { MATES } from '../data/mates.js';
 import { getState, update, unlock } from '../store.js';
+import { markDaily } from '../daily.js';
 
 function startFen(m) {
   const c = new Chess(m.fen);
@@ -58,6 +59,9 @@ function solve(view, i) {
       if (!success) return;
       $('#explain').classList.remove('hidden');
       update((s) => { s.mates[m.id] = true; });
+      if (markDaily('mate', { ref: m.id })) {
+        $('#explain').insertAdjacentHTML('beforeend', '<a class="btn primary" href="#/traning">🔥 Tillbaka till dagens träning →</a>');
+      }
       const n = Object.keys(getState().mates).length;
       if (n >= 5) unlock('mates_5');
       if (MATES.every((x) => getState().mates[x.id])) unlock('mates_all');

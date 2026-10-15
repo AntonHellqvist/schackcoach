@@ -1,6 +1,7 @@
 import { Chess } from '../vendor/chess.js';
 import { toWhiteCp, winProb, formatWhiteCp } from './engine.js';
 import { pvToSan, uciToMove } from './board.js';
+import { diagnose } from './coach.js';
 
 export const CLASSES = {
   brilliant: { name: 'Briljant', sym: '!!' },
@@ -115,16 +116,20 @@ export function classifyMoves(moves, evals, book) {
     const pvSan = pvToSan(mv.before, e0.pv, 6);
     const replySan = e1.best ? pvToSan(mv.after, [e1.best], 1)[0] : null;
 
+    const bad = cls === 'inaccuracy' || cls === 'mistake' || cls === 'blunder';
+    const diag = bad ? diagnose(mv, { bestUci: e0.best, replyUci: e1.best, cpBefore: e0.cp, cpAfter: e1.cp }) : null;
+
     result.push({
       i, san: mv.san, color: mv.color, cls, loss, acc, bestSan, bestUci: e0.best, pvSan, replySan,
-      text: explain(mv, cls, e0, e1, bestSan, replySan, sign),
+      text: explain(mv, cls, e0, e1, bestSan, replySan, sign, diag),
+      mistakeType: diag?.type || null,
       cpAfter: e1.cp,
     });
   }
   return result;
 }
 
-function explain(mv, cls, e0, e1, bestSan, replySan, sign) {
+function explain(mv, cls, e0, e1, bestSan, replySan, sign, diag) {
   const name = CLASSES[cls].name.toLowerCase();
   const evalTxt = `(${formatWhiteCp(e1.cp)})`;
   const m0 = mateIn(e0.cp);
@@ -144,7 +149,8 @@ function explain(mv, cls, e0, e1, bestSan, replySan, sign) {
       return `<b>${mv.san}</b> är ${name}. ${bestSan && bestSan !== mv.san ? `Motorn föredrog <b>${bestSan}</b>.` : ''} ${evalTxt}`;
   }
   let why = '';
-  if (allowsMate) why = `Det tillåter matt i ${m1}${replySan ? `, med början ${replySan}` : ''}.`;
+  if (diag?.text) why = diag.text;
+  else if (allowsMate) why = `Det tillåter matt i ${m1}${replySan ? `, med början ${replySan}` : ''}.`;
   else if (hadMate && !(m1 && Math.sign(e1.cp) === sign)) why = `Du hade matt i ${m0}!`;
   else if (replySan && replySan.includes('x')) why = `Motståndaren kan svara <b>${replySan}</b> och vinna material.`;
   else if (replySan) why = `Motståndaren svarar bäst med <b>${replySan}</b>.`;

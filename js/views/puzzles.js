@@ -189,7 +189,8 @@ function mountMistakes(view) {
             });
             if (getState().mistakes.filter((m) => m.solved).length >= 5) unlock('mistakes_5');
           } else queue.push(current); // tillbaka i kön tills det sitter
-          ui.$('#extra').innerHTML = `<div class="muted small">Motorns förstaval: <b>${current.bestSan}</b></div>`;
+          ui.$('#extra').innerHTML = `<div class="muted small">Motorns förstaval: <b>${current.bestSan}</b></div>
+            ${current.why ? `<div class="feedback info small" style="margin-top:8px"><b>Coachen:</b> ${current.why}</div>` : ''}`;
         }
       },
     });

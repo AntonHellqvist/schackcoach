@@ -49,6 +49,22 @@ export function addGame(game) {
   return i < 0;
 }
 
+/** Egna partier (mot bottar / inklistrade) – de som inte kan hämtas om från Chess.com. */
+export function ownGames() {
+  return lib.games.filter((g) => g.source !== 'chesscom');
+}
+
+/** Lägger till partier från en annan enhet (befintliga partier behålls). */
+export function mergeGames(games) {
+  const known = new Set(lib.games.map((g) => g.id));
+  const added = games.filter((g) => g?.id && g.pgn && !known.has(g.id));
+  if (!added.length) return 0;
+  lib.games.push(...added);
+  save();
+  emit({ added, fromSync: true });
+  return added.length;
+}
+
 let syncing = null;
 
 /**
