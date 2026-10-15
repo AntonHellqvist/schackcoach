@@ -2,7 +2,13 @@
 
 En schackapp i webbläsaren som bedömer dina partier, utvecklar ditt spel och har utmaningar.
 
-## Starta
+## Öppna appen
+
+**På nätet (mobil och dator):** https://antonhellqvist.github.io/schackcoach/
+
+På mobilen: öppna länken i Safari → Dela → *Lägg till på hemskärmen* så får du en app-ikon.
+
+## Köra lokalt
 
 Dubbelklicka på **Starta Schackcoach.command** – eller kör:
 
