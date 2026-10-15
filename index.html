@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Schackcoach</title>
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#161513">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Schackcoach">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <nav class="nav">
+      <a class="brand" href="#/"><img src="vendor/pieces/wN.svg" alt=""> Schackcoach</a>
+      <a href="#/spela" data-route="spela"><span>♟</span> Spela</a>
+      <a href="#/analys" data-route="analys"><span>📈</span> Mina partier</a>
+      <a href="#/pussel" data-route="pussel"><span>🧩</span> Pussel</a>
+      <a href="#/utmaningar" data-route="utmaningar"><span>🏆</span> Utmaningar</a>
+      <a href="#/oppningar" data-route="oppningar"><span>📖</span> Öppningar</a>
+      <a href="#/matter" data-route="matter"><span>♚</span> Snygga matter</a>
+      <a href="#/utveckling" data-route="utveckling"><span>📊</span> Min utveckling</a>
+      <a href="#/analys" class="bg-status hidden" id="bg-status"></a>
+    </nav>
+    <main id="view"></main>
+  </div>
+  <div id="toasts"></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
