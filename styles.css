@@ -55,7 +55,6 @@ p { margin: 0 0 .75em; }
 .nav a.active { background: var(--panel-2); color: #fff; }
 .nav .bg-status { margin-top: auto; font-size: .8rem; font-weight: 500; color: var(--muted); flex-direction: column; align-items: stretch; gap: 4px; }
 .nav .bg-status .progress { height: 4px; }
-@media (max-width: 900px) { .nav .bg-status { margin-top: 0; } }
 .nav .brand { font-weight: 800; font-size: 1.15rem; margin-bottom: 10px; }
 .nav .brand img { width: 28px; }
 main { flex: 1; padding: 24px; min-width: 0; }
@@ -73,13 +72,57 @@ main { flex: 1; padding: 24px; min-width: 0; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .spacer { flex: 1; }
 
+/* tabbar och "Mer"-meny – bara på mobil */
+.tabbar, .sheet { display: none; }
+
 @media (max-width: 900px) {
   .app { flex-direction: column; }
-  .nav { width: 100%; height: auto; position: static; flex-direction: row; overflow-x: auto; padding: 8px; }
-  .nav a { white-space: nowrap; padding: 8px 10px; }
-  .nav .brand { margin: 0 6px 0 0; }
-  main { padding: 16px; }
+  /* Toppen blir en smal rubrikrad; navigeringen flyttar till flikraden längst ner */
+  .nav {
+    width: 100%; height: auto; position: sticky; top: 0; z-index: 50; flex-direction: row; align-items: center;
+    padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+    border-bottom: 1px solid var(--border);
+  }
+  .nav a:not(.brand):not(.bg-status) { display: none; }
+  .nav .brand { margin: 0; padding: 4px 0; }
+  .nav .bg-status { margin: 0 0 0 auto; padding: 0; max-width: 55%; font-size: .75rem; }
+  .nav .bg-status span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  main {
+    padding: 16px max(16px, env(safe-area-inset-right)) calc(84px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
   .layout { grid-template-columns: 1fr; }
+
+  .tabbar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    background: #161513; border-top: 1px solid var(--border);
+    padding: 6px max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+  }
+  .tabbar a, .tabbar button {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0;
+    background: none; border: 0; border-radius: 10px; color: var(--muted); font: inherit; font-size: .72rem; font-weight: 600;
+    text-decoration: none; min-height: 52px; justify-content: center; -webkit-tap-highlight-color: transparent;
+  }
+  .tabbar span { font-size: 1.35rem; line-height: 1; }
+  .tabbar .active { color: #fff; background: var(--panel-2); }
+
+  .sheet {
+    display: block; position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.5);
+  }
+  .sheet.hidden { display: none !important; }
+  .sheet-panel {
+    position: absolute; left: 10px; right: 10px; bottom: calc(76px + env(safe-area-inset-bottom));
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 8px;
+    display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,.5); animation: pop .2s ease-out;
+  }
+  .sheet-panel a {
+    display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 10px; color: var(--text);
+    text-decoration: none; font-weight: 600; font-size: 1.05rem;
+  }
+  .sheet-panel a.active { background: var(--panel-2); }
+  .sheet-panel span { width: 26px; text-align: center; }
+
+  #toasts { left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); }
+  .toast { max-width: none; }
 }
 
 /* ---------- knappar och formulär ---------- */

@@ -29,6 +29,22 @@
     </nav>
     <main id="view"></main>
   </div>
+  <!-- Flikrad för mobil (visas bara på smala skärmar) -->
+  <nav class="tabbar" id="tabbar">
+    <a href="#/" data-route=""><span>🏠</span>Hem</a>
+    <a href="#/spela" data-route="spela"><span>♟</span>Spela</a>
+    <a href="#/analys" data-route="analys"><span>📈</span>Partier</a>
+    <a href="#/pussel" data-route="pussel"><span>🧩</span>Pussel</a>
+    <button type="button" id="more-btn" data-more><span>☰</span>Mer</button>
+  </nav>
+  <div class="sheet hidden" id="more-sheet">
+    <div class="sheet-panel">
+      <a href="#/utmaningar" data-route="utmaningar"><span>🏆</span> Utmaningar</a>
+      <a href="#/oppningar" data-route="oppningar"><span>📖</span> Öppningar</a>
+      <a href="#/matter" data-route="matter"><span>♚</span> Snygga matter</a>
+      <a href="#/utveckling" data-route="utveckling"><span>📊</span> Min utveckling</a>
+    </div>
+  </div>
   <div id="toasts"></div>
   <script type="module" src="js/app.js"></script>
 </body>

@@ -26,7 +26,10 @@ async function route() {
     try { cleanup(); } catch (e) { console.error(e); }
     cleanup = null;
   }
-  document.querySelectorAll('.nav a[data-route]').forEach((a) => a.classList.toggle('active', a.dataset.route === name));
+  document.querySelectorAll('[data-route]').forEach((a) => a.classList.toggle('active', a.dataset.route === (routes[name] ? name : '')));
+  const inMore = !!document.querySelector('#more-sheet [data-route].active');
+  document.getElementById('more-btn').classList.toggle('active', inMore);
+  document.getElementById('more-sheet').classList.add('hidden');
   view.innerHTML = '<div class="row muted"><span class="spinner"></span> Laddar…</div>';
   const mod = await load();
   if (my !== token) return;
@@ -36,6 +39,11 @@ async function route() {
 }
 
 window.addEventListener('hashchange', route);
+
+// "Mer"-menyn på mobil
+const sheet = document.getElementById('more-sheet');
+document.getElementById('more-btn').addEventListener('click', () => sheet.classList.toggle('hidden'));
+sheet.addEventListener('click', (e) => { if (e.target === sheet || e.target.closest('a')) sheet.classList.add('hidden'); });
 route();
 
 export function toast(html, ms = 4000) {
