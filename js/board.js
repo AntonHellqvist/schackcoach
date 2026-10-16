@@ -1,5 +1,6 @@
 import { Chess } from '../vendor/chess.js';
 import { getState } from './store.js';
+import { pieceSrc } from './themes.js';
 
 const FILES = 'abcdefgh';
 const ANIM_MS = 170;
@@ -81,7 +82,7 @@ export class Board {
   _layerPiece(code, sq) {
     const { col, row } = this._coords(sq);
     const img = document.createElement('img');
-    img.src = `vendor/pieces/${code}.svg`;
+    img.src = pieceSrc(code);
     img.alt = '';
     img.style.left = col * 12.5 + '%';
     img.style.top = row * 12.5 + '%';
@@ -211,7 +212,7 @@ export class Board {
         if (targets.has(sq)) d.classList.add(p ? 'target-capture' : 'target');
         if (p) {
           const img = document.createElement('img');
-          img.src = `vendor/pieces/${p.color}${p.type.toUpperCase()}.svg`;
+          img.src = pieceSrc(p.color + p.type.toUpperCase());
           img.className = 'piece';
           img.draggable = false;
           img.alt = '';
@@ -289,7 +290,7 @@ export class Board {
       this.selected = sq;
       const p = chess.get(sq);
       const ghost = document.createElement('img');
-      ghost.src = `vendor/pieces/${p.color}${p.type.toUpperCase()}.svg`;
+      ghost.src = pieceSrc(p.color + p.type.toUpperCase());
       ghost.className = 'drag-ghost';
       const size = this.el.getBoundingClientRect().width / 8;
       ghost.style.width = ghost.style.height = size + 'px';
@@ -356,7 +357,7 @@ export class Board {
       ov.className = 'promo';
       for (const t of ['q', 'r', 'b', 'n']) {
         const b = document.createElement('button');
-        b.innerHTML = `<img src="vendor/pieces/${color}${t.toUpperCase()}.svg" alt="${t}">`;
+        b.innerHTML = `<img src="${pieceSrc(color + t.toUpperCase())}" alt="${t}">`;
         b.onclick = (ev) => {
           ev.stopPropagation();
           ov.remove();

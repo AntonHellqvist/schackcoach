@@ -26,8 +26,8 @@ Appen öppnas på http://localhost:8642. Inget behöver installeras (bara Python
   så följer framstegen med mellan mobil och dator. Går nyckeln ut får du en notis i appen (och en varning en vecka innan).
 - **Ljud** 🔊 – träklick när pjäserna flyttas (i stil med Chess.com), eget ljud vid slag, rockad och förvandling,
   en tydlig signal vid schack och en ton när partiet börjar och slutar. Stängs av under Inställningar eller med 🔊-knappen.
-- **Brädfärger och animationer** 🎨 – nio brädfärger att välja mellan, pjäser som glider, tagna pjäser som tonar bort
-  och konfetti när du vinner. Väljs under Inställningar → Bräde.
+- **Bräde, pjäser och animationer** 🎨 – nio brädfärger och 13 pjäsuppsättningar att välja mellan, pjäser som glider,
+  tagna pjäser som tonar bort och konfetti när du vinner. Väljs under Inställningar → Bräde och pjäser.
 
 - **Spela** mot 8 bottar från ca 400 till full Stockfish-styrka, med tips och ångra.
 - **Partibedömning** drag för drag (briljant, bästa, inexakt, misstag, blunder …), träffsäkerhet,
@@ -44,4 +44,4 @@ All data sparas lokalt i webbläsaren.
 ## Teknik
 
 Ren HTML/CSS/JavaScript utan byggsteg. Stockfish 10 (WebAssembly) körs i en web worker,
-reglerna sköts av chess.js och pjäserna är Lichess "cburnett"-set. Allt ligger i `vendor/`.
+reglerna sköts av chess.js och pjäserna kommer från Lichess (licenser i `vendor/pieces/LICENSES.md`). Allt ligger i `vendor/`.

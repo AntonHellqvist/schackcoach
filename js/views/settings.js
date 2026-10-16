@@ -1,7 +1,7 @@
 import { getState, update, resetAll } from '../store.js';
 import { connect, disconnect, syncNow, onSyncStatus, syncConfig } from '../sync.js';
 import { play as playSound, soundOn } from '../sound.js';
-import { BOARD_THEMES, boardTheme } from '../themes.js';
+import { BOARD_THEMES, boardTheme, PIECE_SETS, pieceSet, pieceSrc } from '../themes.js';
 
 const TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=Schackcoach%20synk';
 
@@ -32,8 +32,11 @@ export function mount(view) {
     </div>
 
     <div class="card" style="margin-top:14px">
-      <h2>🎨 Bräde</h2>
+      <h2>🎨 Bräde och pjäser</h2>
+      <h3 style="margin:0 0 8px">Brädfärg</h3>
       <div class="theme-grid" id="themes"></div>
+      <h3 style="margin:18px 0 8px">Pjäser</h3>
+      <div class="theme-grid pieces-grid" id="pieces"></div>
       <label class="row small" style="margin-top:14px;font-weight:500;cursor:pointer">
         <input type="checkbox" id="anim" ${s.settings.animations !== false ? 'checked' : ''}> Animationer (pjäser som glider, konfetti när du vinner)</label>
     </div>
@@ -62,7 +65,7 @@ export function mount(view) {
   const renderThemes = () => {
     themes.innerHTML = BOARD_THEMES.map((t) => `
       <button type="button" data-id="${t.id}" class="${t.id === boardTheme() ? 'active' : ''}">
-        <span class="theme-swatch" style="--l:${t.light};--d:${t.dark}"><img src="vendor/pieces/wN.svg" alt=""><img src="vendor/pieces/bK.svg" alt=""></span>
+        <span class="theme-swatch" style="--l:${t.light};--d:${t.dark}"><img src="${pieceSrc('wN')}" alt=""><img src="${pieceSrc('bK')}" alt=""></span>
         ${t.name}
       </button>`).join('');
   };
@@ -71,8 +74,25 @@ export function mount(view) {
     if (!id) return;
     update((st) => { st.settings.boardTheme = id; });
     renderThemes();
+    renderPieces();
   };
   renderThemes();
+  const pieces = $('#pieces');
+  const renderPieces = () => {
+    pieces.innerHTML = PIECE_SETS.map((p) => `
+      <button type="button" data-id="${p.id}" class="${p.id === pieceSet() ? 'active' : ''}">
+        <span class="piece-preview">${['wK', 'wN', 'bQ', 'bB'].map((c) => `<img src="${pieceSrc(c, p.id)}" alt="" loading="lazy">`).join('')}</span>
+        ${p.name}
+      </button>`).join('');
+  };
+  pieces.onclick = (e) => {
+    const id = e.target.closest('button')?.dataset.id;
+    if (!id) return;
+    update((st) => { st.settings.pieceSet = id; });
+    renderPieces();
+    renderThemes();
+  };
+  renderPieces();
   $('#anim').onchange = (e) => update((st) => { st.settings.animations = e.target.checked; });
   $('#sound').onchange = (e) => {
     update((st) => { st.settings.sound = e.target.checked; });

@@ -16,6 +16,31 @@ export const BOARD_THEMES = [
 
 export const boardTheme = () => getState().settings.boardTheme || 'green';
 
+// Pjäsuppsättningar från Lichess (licenser i vendor/pieces/LICENSES.md).
+export const PIECE_SETS = [
+  { id: 'cburnett', name: 'Klassisk' },
+  { id: 'staunty', name: 'Staunty' },
+  { id: 'maestro', name: 'Maestro' },
+  { id: 'california', name: 'California' },
+  { id: 'cardinal', name: 'Kardinal' },
+  { id: 'tatiana', name: 'Tatiana' },
+  { id: 'merida', name: 'Merida' },
+  { id: 'chessnut', name: 'Chessnut' },
+  { id: 'fantasy', name: 'Fantasy' },
+  { id: 'spatial', name: 'Spatial' },
+  { id: 'pixel', name: 'Pixel' },
+  { id: 'anarcandy', name: 'Godis' },
+  { id: 'horsey', name: 'Horsey' },
+];
+
+export const pieceSet = () => {
+  const id = getState().settings.pieceSet;
+  return PIECE_SETS.some((p) => p.id === id) ? id : 'cburnett';
+};
+
+/** Sökvägen till en pjäsbild, t.ex. pieceSrc('wN'). Klassisk ligger direkt i vendor/pieces/. */
+export const pieceSrc = (code, set = pieceSet()) => `vendor/pieces/${set === 'cburnett' ? '' : set + '/'}${code}.svg`;
+
 export function applyBoardTheme() {
   const id = boardTheme();
   if (id === 'green') delete document.documentElement.dataset.board;
