@@ -106,6 +106,8 @@ const SOUNDS = {
   win: (c, t) => { marimba(c, t, 784); marimba(c, t + 0.12, 1047); marimba(c, t + 0.24, 1319, 0.26, 0.9); },
   loss: (c, t) => { marimba(c, t, 880, 0.22); marimba(c, t + 0.16, 659, 0.22); marimba(c, t + 0.32, 523, 0.22, 0.9); },
   draw: (c, t) => { marimba(c, t, 880, 0.22, 0.5); marimba(c, t + 0.16, 880, 0.22, 0.8); },
+  correct: (c, t) => { marimba(c, t, 1047, 0.2, 0.4); marimba(c, t + 0.09, 1568, 0.2, 0.6); },
+  wrong: (c, t) => { marimba(c, t, 330, 0.2, 0.25); marimba(c, t + 0.1, 277, 0.2, 0.35); },
   illegal: (c, t) => { partial(c, t, 196, 0.3, 0.09); partial(c, t + 0.07, 185, 0.25, 0.1); },
 };
 

@@ -31,7 +31,8 @@ Appen öppnas på http://localhost:8642. Inget behöver installeras (bara Python
 
 - **Spela** mot 8 bottar från ca 400 till full Stockfish-styrka, med tips och ångra.
 - **Partibedömning** drag för drag (briljant, bästa, inexakt, misstag, blunder …), träffsäkerhet,
-  värderingsgraf och coachkommentarer. Hämtar dina partier direkt från **Chess.com**, eller klistra in PGN.
+  värderingsgraf och coachkommentarer. Vid dina misstag och blunders får du först **försöka igen** och leta efter
+  ett bättre drag själv innan svaret visas. Hämtar dina partier direkt från **Chess.com**, eller klistra in PGN.
 - **Träna på dina misstag** – dina blunders och misstag sparas automatiskt som pussel.
 - **Taktikpussel** från Lichess med teman, egen pusselrating och dagens pussel.
 - **Utmaningar**: pusselrush (3 min), slutspelsmatter mot Stockfish, besegra bottarna och ett 30-tal utmaningar.

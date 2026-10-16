@@ -1,12 +1,13 @@
 import { Chess } from '../../vendor/chess.js';
 import { Board, uciToMove } from '../board.js';
-import { Engine, winProb, formatWhiteCp } from '../engine.js';
+import { Engine, sharedEngine, toWhiteCp, winProb, formatWhiteCp } from '../engine.js';
 import { analysePositions, classifyMoves, accuracy, countClasses, CLASSES, CLASS_ORDER } from '../analysis.js';
 import { getState, update } from '../store.js';
 import { libraryGames, getLibraryGame, syncChesscom, lastSync, onLibraryChange } from '../library.js';
 import {
   BOOK, DEPTH, getAnalysis, parseGame, saveAnalysis, enqueue, dequeue, clearQueue, queueStatus, onQueueChange, pauseBackground,
 } from '../analyzer.js';
+import { play as playSound, playMove } from '../sound.js';
 
 export function mount(view, [param]) {
   let cleanup = null;
@@ -325,6 +326,13 @@ function showReview(view, { meta, moves, fens, evals, headers, userColor }) {
   const nice = classified.filter((m) => m.color === userColor && (m.cls === 'brilliant' || m.cls === 'great'));
   let cur = 0;
   let showBest = true;
+  // "Försök igen": vid dina misstag får du först leta efter ett bättre drag själv.
+  let retry = getState().settings.retryMistakes !== false;
+  const done = new Set(); // drag (ply) där du hittat svaret eller valt att se det
+  let found = null; // { ply, san, best } – senast hittade drag
+  let tries = 0;
+  let destroyed = false;
+  const isRetry = (cm) => retry && cm && cm.color === userColor && (cm.cls === 'mistake' || cm.cls === 'blunder') && cm.bestUci && !done.has(cm.i + 1);
 
   view.innerHTML = `
     <div class="row" style="margin-bottom:10px">
@@ -346,6 +354,7 @@ function showReview(view, { meta, moves, fens, evals, headers, userColor }) {
           <button class="icon" id="last" title="Slutet">⏭</button>
           <button class="icon" id="flip" title="Vänd brädet">⇅</button>
           <button id="toggleBest" title="Visa/dölj bästa drag">Visa bästa drag: på</button>
+          <button id="toggleRetry" title="Försök hitta ett bättre drag själv innan svaret visas"></button>
         </div>
         <div class="card chart" id="graph"></div>
       </div>
@@ -363,6 +372,11 @@ function showReview(view, { meta, moves, fens, evals, headers, userColor }) {
           <h3>Det här draget</h3>
           <div id="coach" class="feedback"></div>
           <div id="line" class="muted small" style="margin-top:8px"></div>
+          <div id="retrybtns" class="row hidden" style="margin-top:12px">
+            <button id="rhint">💡 Tips</button>
+            <button id="reveal">👁 Visa svaret</button>
+            <button id="skip" class="ghost">Hoppa över →</button>
+          </div>
         </div>
         ${key.length || nice.length ? `<div class="card"><h3>Nyckelögonblick</h3><div class="row" id="keys">
           ${[...nice, ...key].sort((a, b) => a.i - b.i).map((m) => `<button data-ply="${m.i + 1}"><span class="cls cls-${m.cls}">${CLASSES[m.cls].sym}</span>${Math.floor(m.i / 2) + 1}${m.color === 'w' ? '.' : '…'} ${m.san}</button>`).join('')}
@@ -376,7 +390,7 @@ function showReview(view, { meta, moves, fens, evals, headers, userColor }) {
     </div>`;
 
   const $ = (s) => view.querySelector(s);
-  const board = new Board($('#board'), { orientation: userColor });
+  const board = new Board($('#board'), { orientation: userColor, onMove: (m) => tryMove(m) });
 
   // drag-lista
   let mhtml = '';
@@ -417,24 +431,15 @@ function showReview(view, { meta, moves, fens, evals, headers, userColor }) {
   }
 
   function go(ply) {
-    cur = Math.max(0, Math.min(fens.length - 1, ply));
+    const next = Math.max(0, Math.min(fens.length - 1, ply));
+    // Dragljud när man stegar framåt ett drag i taget (inte när ett misstag ska försökas igen).
+    if (next === cur + 1 && !isRetry(classified[next - 1])) playMove(moves[next - 1], new Chess(fens[next]));
+    cur = next;
+    tries = 0;
     render();
   }
 
-  function render() {
-    const mv = moves[cur - 1];
-    const cm = classified[cur - 1];
-    board.set(fens[cur], { lastMove: mv ? { from: mv.from, to: mv.to } : null });
-    board.setBadge(cm ? { sq: mv.to, cls: cm.cls, sym: CLASSES[cm.cls].sym } : null);
-    const arrows = [];
-    if (showBest && cm && cm.bestUci && !['best', 'book', 'brilliant', 'great'].includes(cm.cls)) {
-      const b = uciToMove(cm.bestUci);
-      arrows.push({ from: b.from, to: b.to, color: 'green' });
-    }
-    board.setArrows(arrows);
-
-    // värderingsstapel
-    const cp = evals[cur].cp;
+  function renderEval(cp) {
     const wp = winProb(cp);
     const bar = $('#evalbar');
     const white = bar.querySelector('.white');
@@ -449,6 +454,105 @@ function showReview(view, { meta, moves, fens, evals, headers, userColor }) {
     const atBottom = whiteAhead !== flipped;
     label.style.top = atBottom ? 'auto' : '4px';
     label.style.bottom = atBottom ? '4px' : 'auto';
+  }
+
+  function markCurrent() {
+    view.querySelectorAll('#moves .mv').forEach((el) => el.classList.toggle('current', +el.dataset.ply === cur));
+    view.querySelector('#moves .mv.current')?.scrollIntoView({ block: 'nearest' });
+    renderGraph();
+  }
+
+  /** Ställningen före ditt misstag: hitta ett bättre drag själv. */
+  function renderRetry(cm) {
+    const prev = moves[cur - 2];
+    board.set(fens[cur - 1], { lastMove: prev ? { from: prev.from, to: prev.to } : null });
+    board.setBadge(null);
+    board.setArrows([]);
+    board.setMarks({});
+    board.setMovable(userColor);
+    renderEval(evals[cur - 1].cp);
+    const coach = $('#coach');
+    coach.className = 'feedback warn';
+    coach.innerHTML = `<div class="row" style="gap:8px;margin-bottom:4px"><span class="cls cls-${cm.cls}">${CLASSES[cm.cls].sym}</span>
+      <b>Försök igen!</b></div>
+      I partiet spelade du <b>${Math.floor(cm.i / 2) + 1}${cm.color === 'w' ? '.' : '…'} ${cm.san}</b> här – ${cm.cls === 'blunder' ? 'en blunder' : 'ett misstag'}.
+      Hitta ett bättre drag på brädet.`;
+    $('#line').innerHTML = '';
+    $('#retrybtns').classList.remove('hidden');
+    $('#reveal').classList.toggle('primary', tries >= 3);
+    markCurrent();
+  }
+
+  /** Bedömer ditt försök: lika bra som motorns bästa drag (högst 5 % sämre vinstchans) räknas som rätt. */
+  async function tryMove(m) {
+    const ply = cur;
+    const cm = classified[ply - 1];
+    if (!isRetry(cm)) return;
+    const fen = fens[ply - 1];
+    const c = new Chess(fen);
+    let mv;
+    try { mv = c.move(m); } catch { return; }
+    playMove(mv, c);
+    board.set(c.fen(), { lastMove: { from: mv.from, to: mv.to } });
+    board.setMovable(null);
+    board.setMarks({});
+    $('#line').innerHTML = '<span class="spinner"></span> Coachen tittar på draget…';
+
+    const e0 = evals[ply - 1];
+    const sign = userColor === 'w' ? 1 : -1;
+    const uci = mv.from + mv.to + (mv.promotion || '');
+    let cpAfter;
+    const alt = e0.alts?.find((a) => a[0] === uci);
+    if (uci === e0.best) cpAfter = e0.cp;
+    else if (alt) cpAfter = alt[1];
+    else if (c.isCheckmate()) cpAfter = sign * 10000;
+    else if (c.isGameOver()) cpAfter = 0;
+    else {
+      const r = await sharedEngine().analyse(c.fen(), { depth: 12 });
+      cpAfter = r.lines[0] ? toWhiteCp(r.lines[0].score, c.turn()) : e0.cp;
+    }
+    if (destroyed || cur !== ply) return;
+    const loss = winProb(sign * e0.cp) - winProb(sign * cpAfter);
+
+    if (loss < 0.05) {
+      done.add(ply);
+      found = { ply, san: mv.san, best: uci === e0.best };
+      playSound('correct');
+      render();
+      return;
+    }
+    tries++;
+    playSound('wrong', 0.15);
+    const better = loss < cm.loss - 0.03;
+    $('#line').innerHTML = `<span style="color:var(--${better ? 'warn' : 'danger'})">${better
+      ? `<b>${mv.san}</b> är bättre än i partiet, men det finns ett ännu starkare drag.`
+      : `<b>${mv.san}</b> är inte heller så bra.`} Försök igen!</span>`;
+    setTimeout(() => {
+      if (destroyed || cur !== ply || done.has(ply)) return;
+      const prev = moves[ply - 2];
+      board.set(fen, { lastMove: prev ? { from: prev.from, to: prev.to } : null });
+      board.setMovable(userColor);
+      $('#reveal').classList.toggle('primary', tries >= 3);
+    }, 900);
+  }
+
+  function render() {
+    const mv = moves[cur - 1];
+    const cm = classified[cur - 1];
+    $('#toggleRetry').textContent = '🎯 Försök själv: ' + (retry ? 'på' : 'av');
+    if (isRetry(cm)) return renderRetry(cm);
+    $('#retrybtns').classList.add('hidden');
+    board.setMovable(null);
+    board.setMarks({});
+    board.set(fens[cur], { lastMove: mv ? { from: mv.from, to: mv.to } : null });
+    board.setBadge(cm ? { sq: mv.to, cls: cm.cls, sym: CLASSES[cm.cls].sym } : null);
+    const arrows = [];
+    if (showBest && cm && cm.bestUci && !['best', 'book', 'brilliant', 'great'].includes(cm.cls)) {
+      const b = uciToMove(cm.bestUci);
+      arrows.push({ from: b.from, to: b.to, color: 'green' });
+    }
+    board.setArrows(arrows);
+    renderEval(evals[cur].cp);
 
     const coach = $('#coach');
     if (!cm) {
@@ -458,13 +562,13 @@ function showReview(view, { meta, moves, fens, evals, headers, userColor }) {
     } else {
       const bad = ['inaccuracy', 'mistake', 'blunder'].includes(cm.cls);
       coach.className = 'feedback ' + (bad ? (cm.cls === 'inaccuracy' ? 'warn' : 'bad') : 'ok');
-      coach.innerHTML = `<div class="row" style="gap:8px;margin-bottom:4px"><span class="cls cls-${cm.cls}">${CLASSES[cm.cls].sym}</span>
+      const win = found?.ply === cur
+        ? `<div class="feedback ok" style="margin-bottom:10px">✅ <b>Snyggt!</b> Du hittade <b>${found.san}</b>${found.best ? ' – motorns bästa drag.' : ' – lika starkt som motorns förslag.'}</div>` : '';
+      coach.innerHTML = `${win}<div class="row" style="gap:8px;margin-bottom:4px"><span class="cls cls-${cm.cls}">${CLASSES[cm.cls].sym}</span>
         <b>${CLASSES[cm.cls].name}</b><span class="muted small">${cm.color === userColor ? 'ditt drag' : 'motståndarens drag'}</span></div>${cm.text}`;
       $('#line').innerHTML = bad && cm.pvSan.length ? `Bästa variant: ${cm.pvSan.join(' ')}` : '';
     }
-    view.querySelectorAll('#moves .mv').forEach((el) => el.classList.toggle('current', +el.dataset.ply === cur));
-    view.querySelector('#moves .mv.current')?.scrollIntoView({ block: 'nearest' });
-    renderGraph();
+    markCurrent();
   }
 
   $('#first').onclick = () => go(0);
@@ -472,6 +576,23 @@ function showReview(view, { meta, moves, fens, evals, headers, userColor }) {
   $('#next').onclick = () => go(cur + 1);
   $('#last').onclick = () => go(fens.length - 1);
   $('#flip').onclick = () => { board.flip(); render(); };
+  $('#toggleRetry').onclick = () => {
+    retry = !retry;
+    update((s) => { s.settings.retryMistakes = retry; });
+    render();
+  };
+  $('#rhint').onclick = () => {
+    const cm = classified[cur - 1];
+    if (!isRetry(cm)) return;
+    board.setMarks({ [uciToMove(cm.bestUci).from]: 'hint' });
+    $('#line').innerHTML = 'Tips: den markerade pjäsen har ett bra drag.';
+  };
+  $('#reveal').onclick = () => {
+    done.add(cur);
+    found = null;
+    render();
+  };
+  $('#skip').onclick = () => go(cur + 1);
   $('#toggleBest').onclick = (e) => {
     showBest = !showBest;
     e.target.textContent = 'Visa bästa drag: ' + (showBest ? 'på' : 'av');
@@ -486,6 +607,7 @@ function showReview(view, { meta, moves, fens, evals, headers, userColor }) {
   render();
 
   return () => {
+    destroyed = true;
     window.removeEventListener('keydown', onKey);
     board.destroy();
   };
