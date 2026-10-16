@@ -1,6 +1,24 @@
 import { Chess } from '../vendor/chess.js';
+import { getState } from './store.js';
 
 const FILES = 'abcdefgh';
+const ANIM_MS = 170;
+
+const animationsOn = () => getState().settings.animations !== false && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/** Läser ut pjäserna ur en FEN: { e1: 'wK', … } */
+function pieceMap(fen) {
+  const out = {};
+  fen.split(' ')[0].split('/').forEach((row, i) => {
+    let f = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) { f += +ch; continue; }
+      out[FILES[f] + (8 - i)] = (ch === ch.toUpperCase() ? 'w' : 'b') + ch.toUpperCase();
+      f++;
+    }
+  });
+  return out;
+}
 
 /**
  * Interaktivt schackbräde (klicka eller dra för att flytta).
@@ -25,7 +43,11 @@ export class Board {
     this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     this.svg.setAttribute('viewBox', '0 0 8 8');
     this.svg.classList.add('arrows');
-    this.el.append(this.squaresEl, this.svg);
+    // Animationer ritas i ett eget lager, så att de överlever när brädet ritas om mitt i en glidning.
+    this.layer = document.createElement('div');
+    this.layer.className = 'anim-layer';
+    this.sliding = new Set(); // rutor vars pjäs döljs tills den glidande kopian har landat
+    this.el.append(this.squaresEl, this.layer, this.svg);
     container.append(this.el);
 
     this.el.addEventListener('pointerdown', (e) => this._down(e));
@@ -44,11 +66,75 @@ export class Board {
   }
 
   set(fen, { lastMove = null, keepArrows = false } = {}) {
+    const prev = this.fen;
     this.fen = fen;
     this.lastMove = lastMove;
     this.selected = null;
     if (!keepArrows) this.arrowList = [];
+    if (prev !== fen) { this.layer.replaceChildren(); this.sliding.clear(); }
     this.render();
+    if (prev !== fen && animationsOn()) this._animate(prev, fen);
+    this.dropped = null;
+  }
+
+  /** En pjäsbild i animationslagret, placerad på rutan sq. */
+  _layerPiece(code, sq) {
+    const { col, row } = this._coords(sq);
+    const img = document.createElement('img');
+    img.src = `vendor/pieces/${code}.svg`;
+    img.alt = '';
+    img.style.left = col * 12.5 + '%';
+    img.style.top = row * 12.5 + '%';
+    return img;
+  }
+
+  /**
+   * Låter pjäserna glida från sina gamla rutor till de nya, och tagna pjäser tona bort.
+   * Fungerar för vanliga drag, rockad, en passant, förvandling och när man bläddrar bakåt.
+   */
+  _animate(fromFen, toFen) {
+    const a = pieceMap(fromFen), b = pieceMap(toFen);
+    const gone = Object.keys(a).filter((sq) => a[sq] !== b[sq]);
+    const came = Object.keys(b).filter((sq) => a[sq] !== b[sq]);
+    if (came.length > 4 || gone.length > 4) return; // nytt parti eller stort hopp: byt bara ställning
+    const dist = (x, y) => Math.hypot(FILES.indexOf(x[0]) - FILES.indexOf(y[0]), x[1] - y[1]);
+    const used = new Set();
+    const slides = [];
+    for (const to of came) {
+      // Samma pjäs i första hand, annars samma färg (en bonde som förvandlas).
+      const pick = (ok) => gone.filter((sq) => !used.has(sq) && ok(a[sq])).sort((x, y) => dist(x, to) - dist(y, to))[0];
+      const from = pick((p) => p === b[to]) || pick((p) => p[0] === b[to][0]);
+      if (!from) continue;
+      used.add(from);
+      if (this.dropped && this.dropped.from === from && this.dropped.to === to) continue; // pjäsen är redan där man släppte den
+      slides.push({ from, to });
+    }
+    if (!this.layer.animate) return;
+    // Tagna pjäser: ligger kvar en kort stund och tonar bort under pjäsen som tar.
+    for (const sq of gone) {
+      if (used.has(sq)) continue;
+      const ghost = this._layerPiece(a[sq], sq);
+      this.layer.append(ghost);
+      ghost.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.8)' }],
+        { duration: ANIM_MS + 60, delay: ANIM_MS * 0.55, easing: 'ease-in', fill: 'forwards' })
+        .onfinish = () => ghost.remove();
+    }
+    for (const { from, to } of slides) {
+      const img = this._layerPiece(b[to], to);
+      img.className = 'slide';
+      this.layer.append(img);
+      this.sliding.add(to);
+      this.squaresEl.querySelector(`[data-sq="${to}"] .piece`)?.classList.add('anim-hidden');
+      const s = this._coords(from), t = this._coords(to);
+      img.animate(
+        [{ transform: `translate(${(s.col - t.col) * 100}%, ${(s.row - t.row) * 100}%)` }, { transform: 'none' }],
+        { duration: ANIM_MS, easing: 'cubic-bezier(.3, .7, .4, 1)' },
+      ).onfinish = () => {
+        img.remove();
+        this.sliding.delete(to);
+        this.squaresEl.querySelector(`[data-sq="${to}"] .piece`)?.classList.remove('anim-hidden');
+      };
+    }
   }
 
   setMovable(m) {
@@ -130,6 +216,7 @@ export class Board {
           img.draggable = false;
           img.alt = '';
           if (this.drag && this.drag.from === sq) img.classList.add('dragging');
+          if (this.sliding.has(sq)) img.classList.add('anim-hidden');
           d.append(img);
         }
         if (this.badge && this.badge.sq === sq) {
@@ -206,6 +293,7 @@ export class Board {
       ghost.className = 'drag-ghost';
       const size = this.el.getBoundingClientRect().width / 8;
       ghost.style.width = ghost.style.height = size + 'px';
+      if (!animationsOn()) ghost.classList.add('still');
       document.body.append(ghost);
       this.drag = { from: sq, ghost, size, moved: false, startX: e.clientX, startY: e.clientY };
       this._placeGhost(e);
@@ -237,6 +325,7 @@ export class Board {
     if (moved && to && to !== from) {
       const chess = new Chess(this.fen);
       if (chess.moves({ square: from, verbose: true }).some((m) => m.to === to)) {
+        this.dropped = { from, to };
         this._tryMove(from, to);
         return;
       }

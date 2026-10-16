@@ -1,5 +1,5 @@
-// Ljud under partierna. Allt skapas med Web Audio i webbläsaren, så inga ljudfiler behövs.
-// Brädljuden låter som en träpjäs mot brädet; schack, matt och partislut har egna toner.
+// Ljud under partierna, i samma stil som Chess.com: torra, korta träklick för dragen och en mjuk
+// marimbaton för partiets start och slut. Allt skapas med Web Audio i webbläsaren, så inga ljudfiler behövs.
 
 import { getState } from './store.js';
 
@@ -12,7 +12,7 @@ function audio() {
     if (!AC) return null;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = 0.8;
+    master.gain.value = 0.7;
     master.connect(ctx.destination);
   }
   if (ctx.state === 'suspended') ctx.resume();
@@ -29,7 +29,7 @@ export const soundOn = () => getState().settings.sound !== false;
 let noiseBuf = null;
 function noise(c) {
   if (!noiseBuf) {
-    noiseBuf = c.createBuffer(1, c.sampleRate * 0.25, c.sampleRate);
+    noiseBuf = c.createBuffer(1, Math.round(c.sampleRate * 0.05), c.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
@@ -38,70 +38,75 @@ function noise(c) {
   return src;
 }
 
-/** En träknack: kort brusstöt genom ett bandpassfilter plus en dov ton. */
-function knock(c, t, { freq = 900, tone = 190, gain = 0.5, len = 0.09 } = {}) {
-  const n = noise(c);
-  const bp = c.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.frequency.value = freq;
-  bp.Q.value = 1.4;
-  const g = c.createGain();
-  g.gain.setValueAtTime(gain, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + len);
-  n.connect(bp).connect(g).connect(master);
-  n.start(t);
-  n.stop(t + len + 0.02);
-
+/** En dämpad sinuston som klingar av exponentiellt – byggstenen i både träklick och marimba. */
+function partial(c, t, freq, gain, decay) {
   const o = c.createOscillator();
-  o.type = 'sine';
-  o.frequency.setValueAtTime(tone * 1.6, t);
-  o.frequency.exponentialRampToValueAtTime(tone, t + 0.04);
-  const og = c.createGain();
-  og.gain.setValueAtTime(gain * 0.7, t);
-  og.gain.exponentialRampToValueAtTime(0.001, t + len * 0.9);
-  o.connect(og).connect(master);
-  o.start(t);
-  o.stop(t + len + 0.02);
-}
-
-/** En ren ton (för schack, matt och partislut). */
-function note(c, t, freq, { len = 0.18, gain = 0.22, type = 'triangle' } = {}) {
-  const o = c.createOscillator();
-  o.type = type;
   o.frequency.value = freq;
   const g = c.createGain();
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.001, t + len);
+  g.gain.linearRampToValueAtTime(gain, t + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
   o.connect(g).connect(master);
   o.start(t);
-  o.stop(t + len + 0.02);
+  o.stop(t + decay + 0.02);
+}
+
+/**
+ * Ett träklick: en mycket kort brusstöt (själva "kicket" när pjäsen nuddar brädet)
+ * plus några oharmoniska delar som klingar av på några hundradelar, som en träkloss.
+ */
+function click(c, t, { pitch = 1, gain = 0.5, bright = 1, body = 1 } = {}) {
+  const n = noise(c);
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 1800 * bright;
+  const ng = c.createGain();
+  ng.gain.setValueAtTime(gain * 0.9, t);
+  ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.008);
+  n.connect(hp).connect(ng).connect(master);
+  n.start(t);
+  n.stop(t + 0.02);
+
+  partial(c, t, 620 * pitch, gain * 0.9 * body, 0.055);
+  partial(c, t, 1480 * pitch, gain * 0.45, 0.03);
+  partial(c, t, 2650 * pitch * bright, gain * 0.22, 0.018);
+  partial(c, t, 150 * pitch, gain * 0.35 * body, 0.04);
+}
+
+/** En marimbaton: grundton + den fjärde deltonen, som klingar ut mjukt. */
+function marimba(c, t, freq, gain = 0.28, len = 0.7) {
+  partial(c, t, freq, gain, len);
+  partial(c, t, freq * 3.93, gain * 0.18, len * 0.25);
+  partial(c, t, freq * 9.2, gain * 0.05, len * 0.1);
 }
 
 const SOUNDS = {
-  move: (c, t) => knock(c, t),
+  move: (c, t) => click(c, t),
+  // Slag: skarpare och hårdare, med ett litet efterklick när den tagna pjäsen knuffas undan.
   capture: (c, t) => {
-    knock(c, t, { freq: 1500, tone: 240, gain: 0.7, len: 0.07 });
-    knock(c, t + 0.055, { freq: 700, tone: 160, gain: 0.55, len: 0.11 });
+    click(c, t, { pitch: 1.12, gain: 0.62, bright: 1.25, body: 0.8 });
+    click(c, t + 0.028, { pitch: 1.5, gain: 0.25, bright: 1.4, body: 0.4 });
   },
   castle: (c, t) => {
-    knock(c, t, { gain: 0.45 });
-    knock(c, t + 0.11, { freq: 800, tone: 170, gain: 0.5 });
+    click(c, t, { gain: 0.45 });
+    click(c, t + 0.1, { pitch: 0.92, gain: 0.5 });
   },
   promote: (c, t) => {
-    knock(c, t);
-    [523, 659, 784, 1047].forEach((f, i) => note(c, t + 0.06 + i * 0.06, f, { len: 0.16, gain: 0.14 }));
+    click(c, t);
+    marimba(c, t + 0.05, 1047, 0.14, 0.35);
+    marimba(c, t + 0.12, 1568, 0.12, 0.45);
   },
-  // Schack: en tydlig, lite larmande dubbelton som skiljer sig från vanliga drag.
+  // Schack: ett ljusare, hårdare klick med en kort klang efter, så att det hörs att något hänt.
   check: (c, t) => {
-    knock(c, t, { gain: 0.45 });
-    note(c, t + 0.03, 988, { len: 0.12, gain: 0.2, type: 'square' });
-    note(c, t + 0.15, 1319, { len: 0.22, gain: 0.2, type: 'square' });
+    click(c, t, { pitch: 1.3, gain: 0.65, bright: 1.3 });
+    marimba(c, t + 0.01, 1319, 0.16, 0.28);
+    marimba(c, t + 0.09, 1760, 0.13, 0.32);
   },
-  win: (c, t) => [523, 659, 784, 1047].forEach((f, i) => note(c, t + i * 0.12, f, { len: i === 3 ? 0.6 : 0.2, gain: 0.2 })),
-  loss: (c, t) => [494, 440, 392, 330].forEach((f, i) => note(c, t + i * 0.16, f, { len: i === 3 ? 0.7 : 0.24, gain: 0.18, type: 'sine' })),
-  draw: (c, t) => { note(c, t, 587, { len: 0.3, gain: 0.18 }); note(c, t + 0.22, 587, { len: 0.45, gain: 0.18 }); },
-  illegal: (c, t) => note(c, t, 150, { len: 0.12, gain: 0.15, type: 'sawtooth' }),
+  start: (c, t) => { marimba(c, t, 784, 0.22, 0.5); marimba(c, t + 0.11, 1047, 0.22, 0.7); },
+  win: (c, t) => { marimba(c, t, 784); marimba(c, t + 0.12, 1047); marimba(c, t + 0.24, 1319, 0.26, 0.9); },
+  loss: (c, t) => { marimba(c, t, 880, 0.22); marimba(c, t + 0.16, 659, 0.22); marimba(c, t + 0.32, 523, 0.22, 0.9); },
+  draw: (c, t) => { marimba(c, t, 880, 0.22, 0.5); marimba(c, t + 0.16, 880, 0.22, 0.8); },
+  illegal: (c, t) => { partial(c, t, 196, 0.3, 0.09); partial(c, t + 0.07, 185, 0.25, 0.1); },
 };
 
 export function play(name, delay = 0) {

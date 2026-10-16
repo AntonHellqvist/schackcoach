@@ -3,6 +3,7 @@ import { ACHIEVEMENTS } from './achievements.js';
 import { syncChesscom } from './library.js';
 import { enqueue, onQueueChange } from './analyzer.js';
 import { startAutoSync, onSyncStatus, syncConfig } from './sync.js';
+import './themes.js';
 
 const routes = {
   '': () => import('./views/home.js'),

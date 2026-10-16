@@ -104,6 +104,26 @@ function materialInfo(chess) {
   return out;
 }
 
+/** Konfetti över skärmen när du vinner. */
+function confetti() {
+  if (getState().settings.animations === false || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const box = document.createElement('div');
+  box.className = 'confetti';
+  const colors = ['#7fb34d', '#f7c631', '#4a90d9', '#e0524f', '#1baca6', '#ece8e2'];
+  for (let i = 0; i < 90; i++) {
+    const p = document.createElement('i');
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.background = colors[i % colors.length];
+    p.style.setProperty('--dx', (Math.random() - 0.5) * 30 + 'vw');
+    p.style.setProperty('--rot', (Math.random() - 0.5) * 1440 + 'deg');
+    p.style.setProperty('--dur', 1.8 + Math.random() * 1.6 + 's');
+    p.style.setProperty('--delay', Math.random() * 0.5 + 's');
+    box.append(p);
+  }
+  document.body.append(box);
+  setTimeout(() => box.remove(), 4200);
+}
+
 /**
  * Ett parti mot en bot. Används både av "Spela" och av utmaningarna.
  * opts: { bot, userColor, fen, resume, persist, title, goal, onEnd(result, chess), onNew }
@@ -331,6 +351,7 @@ export function mountGame(view, opts) {
     const draw = result === '1/2-1/2';
     // Vänta in dragljudet innan partislutet hörs.
     playSound(userWon ? 'win' : draw ? 'draw' : 'loss', resigned ? 0 : 0.4);
+    if (userWon) confetti();
     render();
     board.setMovable(null);
     persist();
@@ -430,6 +451,7 @@ export function mountGame(view, opts) {
   };
 
   engine.newGame();
+  if (!opts.resume) playSound('start');
   render();
   if (!chess.isGameOver() && chess.turn() !== userColor) botTurn();
   else checkEnd();

@@ -12,6 +12,8 @@
   --info: #4a90d9;
   --sq-light: #eeeed2;
   --sq-dark: #769656;
+  --sq-hl: #ffff33; /* färgen som markerar senaste draget */
+  --sq-hl-mix: 50%;
   --c-brilliant: #1baca6;
   --c-great: #5c8bb0;
   --c-best: #81b64c;
@@ -154,6 +156,30 @@ label { font-weight: 600; }
 label.row:has(input[type=checkbox]) { flex-wrap: nowrap; align-items: flex-start; }
 label.row input[type=checkbox] { margin-top: 3px; flex-shrink: 0; width: 18px; height: 18px; }
 
+/* ---------- brädfärger (väljs under Inställningar) ---------- */
+:root[data-board="wood"]   { --sq-light: #f0d9b5; --sq-dark: #b58863; --sq-hl: #e0e04a; --sq-hl-mix: 45%; }
+:root[data-board="walnut"] { --sq-light: #e6c8a0; --sq-dark: #8b5a3c; --sq-hl: #e8d84a; --sq-hl-mix: 45%; }
+:root[data-board="blue"]   { --sq-light: #dee3e6; --sq-dark: #8ca2ad; --sq-hl: #c8e05a; --sq-hl-mix: 50%; }
+:root[data-board="ice"]    { --sq-light: #e3eef4; --sq-dark: #6f9bb8; --sq-hl: #7fe0ff; --sq-hl-mix: 45%; }
+:root[data-board="purple"] { --sq-light: #efefef; --sq-dark: #8877b7; --sq-hl: #ffd84a; --sq-hl-mix: 45%; }
+:root[data-board="coral"]  { --sq-light: #f7e4d7; --sq-dark: #d9826a; --sq-hl: #ffe14a; --sq-hl-mix: 45%; }
+:root[data-board="stone"]  { --sq-light: #dcdcd6; --sq-dark: #8e9089; --sq-hl: #e8e85a; --sq-hl-mix: 50%; }
+:root[data-board="night"]  { --sq-light: #9aa7b4; --sq-dark: #4b5868; --sq-hl: #f0d050; --sq-hl-mix: 45%; }
+
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+.theme-grid button {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; font-size: .85rem;
+  transition: transform .15s, border-color .15s;
+}
+.theme-grid button:hover { transform: translateY(-2px); }
+.theme-grid button.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.theme-swatch {
+  width: 100%; aspect-ratio: 1; border-radius: 5px; position: relative; overflow: hidden;
+  background: repeating-conic-gradient(var(--d) 0 25%, var(--l) 0 50%) 0 0 / 50% 50%;
+}
+.theme-swatch img { position: absolute; width: 50%; inset: 0 auto auto 0; }
+.theme-swatch img + img { inset: auto 0 0 auto; }
+
 /* ---------- bräde ---------- */
 .board {
   position: relative; width: 100%; aspect-ratio: 1; border-radius: 6px; overflow: hidden; user-select: none;
@@ -163,29 +189,61 @@ label.row input[type=checkbox] { margin-top: 3px; flex-shrink: 0; width: 18px; h
 .sq { position: relative; display: flex; align-items: center; justify-content: center; }
 .sq.light { background: var(--sq-light); }
 .sq.dark { background: var(--sq-dark); }
-.sq.last.light { background: #f6f669; }
-.sq.last.dark { background: #baca2b; }
+.sq.last.light { background: color-mix(in srgb, var(--sq-light), var(--sq-hl) var(--sq-hl-mix)); }
+.sq.last.dark { background: color-mix(in srgb, var(--sq-dark), var(--sq-hl) var(--sq-hl-mix)); }
 .sq.selected { box-shadow: inset 0 0 0 100px rgba(20, 85, 30, .45); }
 .sq.check { background: radial-gradient(circle, #ff3b30 0%, rgba(255,59,48,.6) 40%, transparent 75%) !important; }
+.sq.check::before {
+  content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 0 rgba(255,59,48,.7); animation: check-pulse 1.1s ease-out 2;
+}
+@keyframes check-pulse { from { box-shadow: 0 0 0 0 rgba(255,59,48,.75); } to { box-shadow: 0 0 0 14px rgba(255,59,48,0); } }
 .sq.mark-hint { box-shadow: inset 0 0 0 4px var(--info); }
 .sq.mark-good { box-shadow: inset 0 0 0 100px rgba(127,179,77,.55); }
 .sq.mark-bad { box-shadow: inset 0 0 0 100px rgba(224,82,79,.55); }
 .sq.target::after {
   content: ''; width: 30%; height: 30%; border-radius: 50%; background: rgba(0,0,0,.18); position: absolute;
+  animation: pop-in .14s ease-out;
 }
 .sq.target-capture::after {
   content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 6px rgba(0,0,0,.2);
+  animation: fade-in .14s ease-out;
 }
+@keyframes pop-in { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .piece { width: 100%; height: 100%; position: relative; z-index: 1; cursor: grab; }
 .piece.dragging { opacity: .25; }
-.drag-ghost { position: fixed; pointer-events: none; z-index: 1000; }
+.anim-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.anim-layer img { position: absolute; width: 12.5%; height: 12.5%; }
+.anim-layer img.slide { z-index: 1; }
+.piece.anim-hidden { visibility: hidden; }
+.drag-ghost {
+  position: fixed; pointer-events: none; z-index: 1000;
+  transform: scale(1.12); filter: drop-shadow(0 6px 8px rgba(0,0,0,.4)); animation: lift .12s ease-out;
+}
+.drag-ghost.still { transform: none; filter: none; animation: none; }
+@keyframes lift { from { transform: scale(1); filter: none; } }
+
+/* Konfetti när du vinner */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 3000; overflow: hidden; }
+.confetti i {
+  position: absolute; top: -12px; width: 9px; height: 14px; border-radius: 2px; opacity: .95;
+  animation: confetti-fall var(--dur) cubic-bezier(.25,.6,.5,1) var(--delay) forwards;
+}
+@keyframes confetti-fall {
+  to { transform: translate(var(--dx), 105vh) rotate(var(--rot)); opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sq.check::before, .sq.target::after, .sq.target-capture::after, .drag-ghost { animation: none; }
+  .confetti { display: none; }
+}
 .coord { position: absolute; font-size: .7rem; font-weight: 700; pointer-events: none; z-index: 2; }
 .coord.rank { top: 2px; left: 3px; }
 .coord.file { bottom: 1px; right: 4px; }
 .sq.light .coord { color: var(--sq-dark); }
 .sq.dark .coord { color: var(--sq-light); }
 .sq .badge { position: absolute; top: 3%; right: 3%; width: 34%; height: 34%; z-index: 4; font-size: min(1.6vw, .8rem); box-shadow: 0 1px 3px rgba(0,0,0,.5); }
-.arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
 .promo {
   position: absolute; inset: 0; background: rgba(0,0,0,.6); z-index: 10; display: flex; align-items: center;
   justify-content: center; gap: 8px;

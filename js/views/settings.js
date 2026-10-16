@@ -1,6 +1,7 @@
 import { getState, update, resetAll } from '../store.js';
 import { connect, disconnect, syncNow, onSyncStatus, syncConfig } from '../sync.js';
 import { play as playSound, soundOn } from '../sound.js';
+import { BOARD_THEMES, boardTheme } from '../themes.js';
 
 const TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=Schackcoach%20synk';
 
@@ -31,10 +32,17 @@ export function mount(view) {
     </div>
 
     <div class="card" style="margin-top:14px">
+      <h2>🎨 Bräde</h2>
+      <div class="theme-grid" id="themes"></div>
+      <label class="row small" style="margin-top:14px;font-weight:500;cursor:pointer">
+        <input type="checkbox" id="anim" ${s.settings.animations !== false ? 'checked' : ''}> Animationer (pjäser som glider, konfetti när du vinner)</label>
+    </div>
+
+    <div class="card" style="margin-top:14px">
       <h2>🔊 Ljud</h2>
       <label class="row small" style="font-weight:500;cursor:pointer">
         <input type="checkbox" id="sound" ${soundOn() ? 'checked' : ''}> Spela ljud under partierna</label>
-      <p class="muted small" style="margin:8px 0 0">Ett knack när pjäserna flyttas, ett skarpare ljud vid slag, en egen signal när en kung står i schack och en melodi när partiet är slut. På iPhone hörs inget om ljudet är avstängt med knappen på sidan.</p>
+      <p class="muted small" style="margin:8px 0 0">Träklick när pjäserna flyttas, ett skarpare klick vid slag, en egen signal när en kung står i schack och en ton när partiet börjar och slutar. På iPhone hörs inget om ljudet är avstängt med knappen på sidan.</p>
     </div>
 
     <div class="card" style="margin-top:14px">
@@ -50,6 +58,22 @@ export function mount(view) {
   };
   $('#auto').onchange = (e) => update((st) => { st.settings.autoAnalyse = e.target.checked; });
   $('#coach').onchange = (e) => update((st) => { st.settings.coachMode = e.target.checked; });
+  const themes = $('#themes');
+  const renderThemes = () => {
+    themes.innerHTML = BOARD_THEMES.map((t) => `
+      <button type="button" data-id="${t.id}" class="${t.id === boardTheme() ? 'active' : ''}">
+        <span class="theme-swatch" style="--l:${t.light};--d:${t.dark}"><img src="vendor/pieces/wN.svg" alt=""><img src="vendor/pieces/bK.svg" alt=""></span>
+        ${t.name}
+      </button>`).join('');
+  };
+  themes.onclick = (e) => {
+    const id = e.target.closest('button')?.dataset.id;
+    if (!id) return;
+    update((st) => { st.settings.boardTheme = id; });
+    renderThemes();
+  };
+  renderThemes();
+  $('#anim').onchange = (e) => update((st) => { st.settings.animations = e.target.checked; });
   $('#sound').onchange = (e) => {
     update((st) => { st.settings.sound = e.target.checked; });
     playSound('check');
