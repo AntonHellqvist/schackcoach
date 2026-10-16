@@ -67,6 +67,15 @@ main { flex: 1; padding: 24px; min-width: 0; }
 .board-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
+.banner {
+  display: flex; align-items: center; gap: 12px; justify-content: space-between;
+  margin: -6px 0 18px; padding: 10px 12px 10px 14px; border-radius: 8px;
+  background: var(--panel-2); border-left: 4px solid var(--warn);
+}
+.banner.bad { border-color: var(--danger); }
+.banner a { white-space: nowrap; font-weight: 600; }
+.banner button { padding: 4px 10px; flex-shrink: 0; }
+
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

@@ -7,6 +7,7 @@ import { getState, update, unlock } from '../store.js';
 import { addGame } from '../library.js';
 import { enqueue } from '../analyzer.js';
 import { detectOpening } from '../data/openings.js';
+import { play as playSound, playMove, soundOn } from '../sound.js';
 
 export function mount(view, [botParam]) {
   let selectedBot = BOTS.find((b) => b.id === botParam) || BOTS.find((b) => b.id === getState().lastBot) || BOTS[2];
@@ -143,6 +144,7 @@ export function mountGame(view, opts) {
             <button id="flip" title="Vänd brädet">⇅ Vänd</button>
             <button id="resign" title="Ge upp">🏳 Ge upp</button>
             <button id="coach" title="Coachen varnar innan du gör ett dåligt drag"></button>
+            <button id="sound" title="Ljud av eller på"></button>
           </div>
         </div>
         <div class="card">
@@ -285,8 +287,9 @@ export function mountGame(view, opts) {
 
   async function commitMove(m) {
     try {
-      chess.move(m);
+      playMove(chess.move(m), chess);
     } catch {
+      playSound('illegal');
       render();
       return;
     }
@@ -303,7 +306,7 @@ export function mountGame(view, opts) {
     const m = await botMove(engine, fen, bot);
     if (destroyed || fen !== chess.fen()) return;
     thinking = false;
-    if (m) chess.move(m);
+    if (m) playMove(chess.move(m), chess);
     persist();
     if (!checkEnd()) render();
   }
@@ -326,6 +329,8 @@ export function mountGame(view, opts) {
     over = true;
     const userWon = (result === '1-0' && userColor === 'w') || (result === '0-1' && userColor === 'b');
     const draw = result === '1/2-1/2';
+    // Vänta in dragljudet innan partislutet hörs.
+    playSound(userWon ? 'win' : draw ? 'draw' : 'loss', resigned ? 0 : 0.4);
     render();
     board.setMovable(null);
     persist();
@@ -388,6 +393,13 @@ export function mountGame(view, opts) {
     render();
   };
   renderCoachBtn();
+  const renderSoundBtn = () => { $('#sound').textContent = soundOn() ? '🔊 Ljud' : '🔇 Ljud'; };
+  $('#sound').onclick = () => {
+    update((s) => { s.settings.sound = !soundOn(); });
+    renderSoundBtn();
+    playSound('move');
+  };
+  renderSoundBtn();
   $('#resign').onclick = () => {
     if (over) return;
     if (confirm('Vill du ge upp partiet?')) {

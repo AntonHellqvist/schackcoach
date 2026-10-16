@@ -2,7 +2,7 @@ import { onAchievement, getState } from './store.js';
 import { ACHIEVEMENTS } from './achievements.js';
 import { syncChesscom } from './library.js';
 import { enqueue, onQueueChange } from './analyzer.js';
-import { startAutoSync } from './sync.js';
+import { startAutoSync, onSyncStatus, syncConfig } from './sync.js';
 
 const routes = {
   '': () => import('./views/home.js'),
@@ -62,6 +62,36 @@ onAchievement((id) => {
   if (a) toast(`<b>${a.icon} Utmaning klar!</b><br>${a.title}`, 5000);
 });
 
+
+// ---------- Notis om GitHub-nyckeln ----------
+
+const banner = document.getElementById('banner');
+const DISMISS_KEY = 'schackcoach-banner-dismissed';
+const dismissed = () => { try { return sessionStorage.getItem(DISMISS_KEY); } catch { return null; } };
+
+function renderBanner() {
+  const cfg = syncConfig();
+  const daysLeft = cfg.expires ? Math.ceil((cfg.expires - Date.now()) / 864e5) : null;
+  let kind = null, html = '';
+  if (cfg.enabled && cfg.expired) {
+    kind = 'expired';
+    html = '<b>⚠️ Synken har stannat</b> – din GitHub-nyckel har gått ut. <a href="#/installningar">Skapa en ny →</a>';
+  } else if (cfg.enabled && daysLeft !== null && daysLeft <= 7) {
+    kind = 'soon-' + daysLeft;
+    html = `<b>🔑 Din GitHub-nyckel går ut ${daysLeft <= 0 ? 'idag' : daysLeft === 1 ? 'i morgon' : `om ${daysLeft} dagar`}</b> – sedan stannar synken. <a href="#/installningar">Byt nyckel →</a>`;
+  }
+  const show = kind && dismissed() !== kind && !location.hash.startsWith('#/installningar');
+  banner.classList.toggle('hidden', !show);
+  banner.classList.toggle('bad', kind === 'expired');
+  if (!show) return;
+  banner.innerHTML = `<span>${html}</span><button type="button" class="ghost" aria-label="Dölj">✕</button>`;
+  banner.querySelector('button').onclick = () => {
+    try { sessionStorage.setItem(DISMISS_KEY, kind); } catch { /* ignorera */ }
+    renderBanner();
+  };
+}
+onSyncStatus(renderBanner);
+window.addEventListener('hashchange', renderBanner);
 
 // ---------- Chess.com-synk och bakgrundsanalys ----------
 

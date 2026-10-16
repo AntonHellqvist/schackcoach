@@ -23,7 +23,9 @@ Appen öppnas på http://localhost:8642. Inget behöver installeras (bara Python
 - **Coachen** 🛟 – förklarar misstag i klartext (hängande pjäser, gafflar, missade slag, matthot) och kan varna
   *innan* du gör ett dåligt drag mot bottarna. Min utveckling visar dina vanligaste typer av misstag.
 - **Synk mellan enheter** ☁️ – under Inställningar kopplar du appen till en hemlig gist i ditt GitHub-konto
-  så följer framstegen med mellan mobil och dator.
+  så följer framstegen med mellan mobil och dator. Går nyckeln ut får du en notis i appen (och en varning en vecka innan).
+- **Ljud** 🔊 – knack när pjäserna flyttas, eget ljud vid slag, rockad och förvandling, en tydlig signal vid schack
+  och en melodi när partiet är slut. Stängs av under Inställningar eller med 🔊-knappen i partiet.
 
 - **Spela** mot 8 bottar från ca 400 till full Stockfish-styrka, med tips och ångra.
 - **Partibedömning** drag för drag (briljant, bästa, inexakt, misstag, blunder …), träffsäkerhet,

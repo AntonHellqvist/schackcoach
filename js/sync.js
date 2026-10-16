@@ -5,7 +5,7 @@
 import { getState, replaceState, onStateChange } from './store.js';
 import { ownGames, mergeGames, onLibraryChange } from './library.js';
 
-const KEY = 'schackcoach-sync'; // { token, gistId, login, lastSync } – synkas aldrig
+const KEY = 'schackcoach-sync'; // { token, gistId, login, lastSync, expires, expired } – synkas aldrig
 const FILE = 'schackcoach-sync.json';
 const API = 'https://api.github.com';
 
@@ -14,18 +14,39 @@ try { cfg = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { cfg = {}; }
 const saveCfg = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch { /* ignorera */ } };
 
 const listeners = new Set();
-let status = { state: cfg.token ? 'idle' : 'off', message: '' };
+const EXPIRED_MSG = 'Din GitHub-nyckel har gått ut, så synken har stannat. Skapa en ny nyckel och klistra in den här.';
+let status = cfg.expired ? { state: 'expired', message: EXPIRED_MSG } : { state: cfg.token ? 'idle' : 'off', message: '' };
 export const onSyncStatus = (fn) => { listeners.add(fn); fn(status); return () => listeners.delete(fn); };
 const setStatus = (state, message = '') => { status = { state, message, lastSync: cfg.lastSync, login: cfg.login }; listeners.forEach((fn) => fn(status)); };
 
-export const syncConfig = () => ({ enabled: !!cfg.token, login: cfg.login, lastSync: cfg.lastSync });
+export const syncConfig = () => ({ enabled: !!cfg.token, login: cfg.login, lastSync: cfg.lastSync, expires: cfg.expires || null, expired: !!cfg.expired });
+
+class ExpiredError extends Error {}
+
+/** Sparar nyckelns utgångsdatum om GitHub skickar med det (bara nycklar med ett slutdatum har ett). */
+function readExpiry(res) {
+  // Formatet är t.ex. "2026-01-15 12:00:00 UTC" eller "2026-01-15 12:00:00 +0100".
+  const m = (res.headers.get('github-authentication-token-expiration') || '').match(/^(\d{4}-\d\d-\d\d) (\d\d:\d\d:\d\d) ?(UTC|[+-]\d\d:?\d\d)?/);
+  if (!m) return;
+  const zone = !m[3] || m[3] === 'UTC' ? 'Z' : m[3].replace(/(\d\d)(\d\d)$/, '$1:$2');
+  const t = Date.parse(`${m[1]}T${m[2]}${zone}`);
+  if (!Number.isNaN(t) && t !== cfg.expires) { cfg.expires = t; saveCfg(); }
+}
+
+/** Nyckeln fungerar inte längre: markera synken som stoppad tills en ny nyckel kopplas. */
+function markExpired() {
+  cfg.expired = true;
+  saveCfg();
+  setStatus('expired', EXPIRED_MSG);
+}
 
 async function gh(path, opts = {}) {
   const res = await fetch(API + path, {
     ...opts,
     headers: { Authorization: `Bearer ${cfg.token}`, Accept: 'application/vnd.github+json', ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
   });
-  if (res.status === 401) throw new Error('Nyckeln fungerar inte längre (401). Skapa en ny och koppla igen.');
+  if (res.status === 401) throw new ExpiredError(EXPIRED_MSG);
+  readExpiry(res);
   if (!res.ok) throw new Error(`GitHub svarade ${res.status}`);
   return res.json();
 }
@@ -149,7 +170,7 @@ async function readRemote() {
 
 /** Hämtar, slår ihop och skickar upp. */
 export function syncNow() {
-  if (!cfg.token) return Promise.resolve();
+  if (!cfg.token || cfg.expired) return Promise.resolve();
   if (busy) return busy;
   busy = (async () => {
     setStatus('syncing', 'Synkar…');
@@ -170,7 +191,8 @@ export function syncNow() {
       saveCfg();
       setStatus('ok', 'Synkad');
     } catch (e) {
-      setStatus('error', e.message);
+      if (e instanceof ExpiredError) markExpired();
+      else setStatus('error', e.message);
     } finally {
       busy = null;
     }
@@ -190,7 +212,7 @@ async function push() {
 }
 
 function schedulePush() {
-  if (!cfg.token || !cfg.gistId) return;
+  if (!cfg.token || !cfg.gistId || cfg.expired) return;
   clearTimeout(pushTimer);
   pushTimer = setTimeout(async () => {
     if (busy) return schedulePush();
@@ -200,7 +222,8 @@ function schedulePush() {
       saveCfg();
       setStatus('ok', 'Synkad');
     } catch (e) {
-      setStatus('error', e.message);
+      if (e instanceof ExpiredError) markExpired();
+      else setStatus('error', e.message);
     }
   }, 4000);
 }
@@ -213,18 +236,22 @@ export async function connect(token) {
   try {
     const res = await fetch(API + '/user', { headers: { Authorization: `Bearer ${cfg.token}` } });
     if (!res.ok) throw new Error('GitHub godkände inte nyckeln. Kontrollera att du kopierade hela.');
+    readExpiry(res);
     const scopes = res.headers.get('x-oauth-scopes');
     if (scopes !== null && !scopes.split(',').map((x) => x.trim()).includes('gist')) {
       throw new Error('Nyckeln saknar behörigheten "gist". Skapa en ny och kryssa i "gist".');
     }
     cfg.login = (await res.json()).login;
+    // Samma GitHub-konto: behåll gisten så att en ny nyckel tar vid där den gamla slutade.
+    if (prev.gistId && prev.login === cfg.login) cfg.gistId = prev.gistId;
     saveCfg();
     await syncNow();
-    if (status.state === 'error') throw new Error(status.message);
+    if (status.state === 'error' || status.state === 'expired') throw new Error(status.message);
   } catch (e) {
     cfg = prev;
     saveCfg();
-    setStatus(cfg.token ? 'idle' : 'off', '');
+    if (cfg.expired) setStatus('expired', EXPIRED_MSG);
+    else setStatus(cfg.token ? 'idle' : 'off', '');
     throw e;
   }
 }
