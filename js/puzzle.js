@@ -16,7 +16,7 @@ export function sanToUci(fen, sans) {
  *   board, fen, solution: [uci...] (första draget är spelarens),
  *   mode: 'strict' | 'mate' | 'engine',
  *   bestCp: (för 'engine') värdering av bästa draget ur spelarens perspektiv,
- *   onStatus(type, html), onResult({ success, firstTry }), lastMove
+ *   onStatus(type, html), onResult({ success, firstTry }), onWrong(move), lastMove
  * }
  * Returnerar { hint(), showSolution(), destroy() }
  */
@@ -83,6 +83,7 @@ export function runPuzzle(opts) {
     }
 
     if (!ok) {
+      opts.onWrong?.(mv);
       if (!failed) {
         failed = true;
         opts.onResult?.({ success: false, firstTry: true });

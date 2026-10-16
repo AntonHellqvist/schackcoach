@@ -105,7 +105,7 @@ function materialInfo(chess) {
 }
 
 /** Konfetti över skärmen när du vinner. */
-function confetti() {
+export function confetti() {
   if (getState().settings.animations === false || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const box = document.createElement('div');
   box.className = 'confetti';

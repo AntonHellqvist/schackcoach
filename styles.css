@@ -230,6 +230,20 @@ label.row input[type=checkbox] { margin-top: 3px; flex-shrink: 0; width: 18px; h
 .drag-ghost.still { transform: none; filter: none; animation: none; }
 @keyframes lift { from { transform: scale(1); filter: none; } }
 
+/* Kompisutmaning */
+.duel-clock { font-variant-numeric: tabular-nums; }
+.duel-dots { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.duel-dots span { width: 14px; height: 14px; border-radius: 50%; background: var(--panel-2); border: 2px solid var(--border); }
+.duel-dots .cur { border-color: var(--info); animation: pop-in .2s ease-out; }
+.duel-dots .ok { background: var(--accent); border-color: var(--accent); }
+.duel-dots .ok-late { background: var(--warn); border-color: var(--warn); }
+.duel-dots .bad { background: var(--danger); border-color: var(--danger); }
+.duel-table { width: 100%; border-collapse: collapse; }
+.duel-table th { text-align: left; color: var(--muted); font-weight: 600; font-size: .8rem; padding: 6px 8px; }
+.duel-table td { padding: 8px; border-top: 1px solid var(--border); white-space: nowrap; }
+.duel-table tr.me td { background: rgba(127,179,77,.12); }
+.duel-table td.best { color: var(--accent-2); font-weight: 700; }
+
 /* Konfetti när du vinner */
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 3000; overflow: hidden; }
 .confetti i {

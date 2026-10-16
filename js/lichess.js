@@ -70,6 +70,13 @@ export async function nextPuzzle({ theme = '', rating = 1500, difficulty } = {})
   return parse(await res.json());
 }
 
+/** Ett bestämt pussel (används av kompisutmaningar, där alla löser samma pussel). */
+export async function getPuzzle(id) {
+  const res = await fetch('https://lichess.org/api/puzzle/' + encodeURIComponent(id));
+  if (!res.ok) throw new Error('Lichess svarade med fel ' + res.status);
+  return parse(await res.json());
+}
+
 export async function dailyPuzzle() {
   const res = await fetch('https://lichess.org/api/puzzle/daily');
   if (!res.ok) throw new Error('Lichess svarade med fel ' + res.status);

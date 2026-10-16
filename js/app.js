@@ -12,6 +12,7 @@ const routes = {
   analys: () => import('./views/review.js'),
   pussel: () => import('./views/puzzles.js'),
   utmaningar: () => import('./views/challenges.js'),
+  duell: () => import('./views/duel.js'),
   oppningar: () => import('./views/openings.js'),
   matter: () => import('./views/mates.js'),
   utveckling: () => import('./views/progress.js'),

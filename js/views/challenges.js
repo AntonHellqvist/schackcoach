@@ -37,6 +37,7 @@ function overview(view) {
     <h1>Utmaningar</h1>
     <p class="muted">Testa dig själv och lås upp utmaningar. Du har klarat <b>${Object.keys(s.achievements).length}</b> av ${ACHIEVEMENTS.length}.</p>
     <div class="grid">
+      ${card('⚔️', 'Kompisutmaning', 'Lös samma pussel som dina kompisar och se vem som är snabbast. Skicka bara en länk!', '#/duell', false)}
       ${card('📅', 'Dagens pussel', 'Ett nytt pussel varje dag från Lichess.', '#/pussel/daily', has('daily'))}
       ${card('⚡', 'Pusselrush', 'Lös så många pussel du kan på 3 minuter. Tre fel och det är slut!', '#/utmaningar/rush', has('rush_10'),
         `<div class="small">Rekord: <b>${s.rushBest || 0}</b></div>`)}

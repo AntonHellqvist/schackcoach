@@ -121,6 +121,13 @@ export function merge(local, remote) {
   out.mates = { ...(remote.mates || {}), ...(local.mates || {}) };
   out.rushBest = max(local.rushBest, remote.rushBest);
 
+  // Kompisutmaningar: union, med allas resultat ihopslagna per utmaning
+  out.duels = mergeById(local.duels, remote.duels, (x, y) => {
+    const r = new Map((y.r || []).map((p) => [p.i, p]));
+    for (const p of x.r || []) r.set(p.i, p);
+    return { ...x, r: [...r.values()], at: Math.min(x.at || Infinity, y.at || Infinity) };
+  }).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 30);
+
   // Dagens träning: samma dag → slå ihop framstegen, annars den senaste dagen
   const ld = local.daily, rd = remote.daily;
   if (ld && rd && ld.date === rd.date) {

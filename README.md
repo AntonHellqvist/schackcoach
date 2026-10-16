@@ -29,6 +29,8 @@ Appen öppnas på http://localhost:8642. Inget behöver installeras (bara Python
 - **Bräde, pjäser och animationer** 🎨 – nio brädfärger och 13 pjäsuppsättningar att välja mellan, pjäser som glider,
   tagna pjäser som tonar bort och konfetti när du vinner. Väljs under Inställningar → Bräde och pjäser.
 
+- **Kompisutmaning** ⚔️ – lös några pussel med klockan igång och skicka en länk. Kompisarna får samma pussel och ni
+  ser vem som löste flest, med minst fel och snabbast. Ingen inloggning – allas resultat följer med i länken.
 - **Spela** mot 8 bottar från ca 400 till full Stockfish-styrka, med tips och ångra.
 - **Partibedömning** drag för drag (briljant, bästa, inexakt, misstag, blunder …), träffsäkerhet,
   värderingsgraf och coachkommentarer. Vid dina misstag och blunders får du först **försöka igen** och leta efter
